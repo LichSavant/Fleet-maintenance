@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="description" content="ForgeFleet frontend demo sign in" />
+    <title>Sign in · ForgeFleet</title>
+    <link rel="stylesheet" href="src/styles/variables.css" />
+    <link rel="stylesheet" href="src/styles/reset.css" />
+    <link rel="stylesheet" href="src/styles/global.css" />
+    <link rel="stylesheet" href="src/styles/components.css" />
+    <link rel="stylesheet" href="src/styles/pages/auth.css" />
+  </head>
+  <body data-public="true">
+    <main class="auth-page">
+      <section class="auth-hero" aria-label="ForgeFleet vehicle maintenance">
+        <img
+          src="src/assets/images/forgefleet-hero.png"
+          alt="ForgeFleet truck inside a maintenance facility"
+        />
+        <div class="auth-hero-copy">
+          <p class="eyebrow">Precision fleet operations</p>
+          <h1>Keep every vehicle mission ready.</h1>
+        </div>
+      </section>
+      <section class="auth-panel">
+        <div class="auth-card">
+          <div class="auth-brand">
+            <span class="brand-mark">◆</span>
+            <div>
+              <strong>ForgeFleet</strong>
+              <p class="muted">Fleet Maintenance Log System</p>
+            </div>
+          </div>
+          <p class="eyebrow">Welcome back</p>
+          <h2>Sign in to your fleet</h2>
+          <p class="muted">
+            Your stored account determines the role dashboard.
+          </p>
+          <form class="auth-form" id="login-form" novalidate>
+            <div class="field">
+              <label for="email">Email address</label
+              ><input
+                id="email"
+                name="email"
+                type="email"
+                autocomplete="username"
+                placeholder="admin@forgefleet.demo"
+              /><span class="field-error" data-error-for="email"></span
+              ><small
+                id="role-hint"
+                class="text-accent"
+                aria-live="polite"
+              ></small>
+            </div>
+            <div class="field password-wrap">
+              <label for="password">Password</label
+              ><input
+                id="password"
+                name="password"
+                type="password"
+                autocomplete="current-password"
+              /><button
+                class="password-toggle"
+                id="password-toggle"
+                type="button"
+                aria-pressed="false"
+              >
+                Show</button
+              ><span class="field-error" data-error-for="password"></span>
+            </div>
+            <div class="auth-links">
+              <label
+                ><input name="remember" type="checkbox" /> Remember my
+                email</label
+              ><a href="forgot-password.html">Forgot password?</a>
+            </div>
+            <p class="auth-message" id="login-message" role="alert"></p>
+            <button class="button button-primary button-block" type="submit">
+              Sign in</button
+            ><a class="button button-ghost button-block" href="signup.html"
+              >Create a ForgeFleet account</a
+            >
+          </form>
+          <p class="prototype-note mt-4">
+            Frontend demonstration only; this is not secure authentication.
+          </p>
+        </div>
+      </section>
+    </main>
+    <script src="src/services/mockData.js"></script>
+    <script src="src/services/storageService.js"></script>
+    <script src="src/services/dataService.js"></script>
+    <script src="src/services/authService.js"></script>
+    <script src="src/utils/validation.js"></script>
+    <script src="src/scripts/pages/login.js"></script>
+  </body>
+</html>

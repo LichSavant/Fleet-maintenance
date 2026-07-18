@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Layout Test · ForgeFleet</title>
+    <link rel="stylesheet" href="src/styles/variables.css" />
+    <link rel="stylesheet" href="src/styles/reset.css" />
+    <link rel="stylesheet" href="src/styles/global.css" />
+    <link rel="stylesheet" href="src/styles/layout.css" />
+    <link rel="stylesheet" href="src/styles/components.css" />
+    <link rel="stylesheet" href="src/styles/responsive.css" />
+  </head>
+  <body>
+    <main class="main stack">
+      <header class="page-head">
+        <div>
+          <p class="eyebrow">Layout verification</p>
+          <h1>ForgeFleet responsive shell</h1>
+          <p>Representative cards, form, table, and modal styling.</p>
+        </div>
+      </header>
+      <div class="content-grid metrics-grid">
+        <div class="card metric-card">
+          <span class="metric-value">94%</span><strong>Fleet readiness</strong>
+        </div>
+        <div class="card metric-card">
+          <span class="metric-value">24</span><strong>Open work orders</strong>
+        </div>
+      </div>
+      <section class="card">
+        <form class="form-grid">
+          <div class="field">
+            <label for="test-name">Vehicle name</label><input id="test-name" />
+          </div>
+          <div class="field">
+            <label for="test-status">Status</label
+            ><select id="test-status">
+              <option>Active</option>
+            </select>
+          </div>
+        </form>
+      </section>
+    </main>
+  </body>
+</html>

@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="description" content="ForgeFleet maintenance Command Center" />
+    <title>Command Center · ForgeFleet</title>
+    <link rel="stylesheet" href="../src/styles/variables.css" />
+    <link rel="stylesheet" href="../src/styles/reset.css" />
+    <link rel="stylesheet" href="../src/styles/global.css" />
+    <link rel="stylesheet" href="../src/styles/layout.css" />
+    <link rel="stylesheet" href="../src/styles/components.css" />
+    <link rel="stylesheet" href="../src/styles/utilities.css" />
+    <link rel="stylesheet" href="../src/styles/responsive.css" />
+    <link rel="stylesheet" href="../src/styles/pages/dashboard.css" />
+    <link rel="stylesheet" href="../src/styles/pages/dashboard-icons.css" />
+  </head>
+  <body
+    class="command-page"
+    data-page="dashboard"
+    data-role="admin"
+    data-depth="1"
+  >
+    <div class="command-shell">
+      <div data-component="sidebar"></div>
+      <div class="command-workspace">
+        <div data-component="topbar"></div>
+        <main class="command-main" id="page-content">
+          <div class="dashboard-loading" role="status">
+            Loading Command Center…
+          </div>
+        </main>
+      </div>
+      <button
+        class="sidebar-scrim"
+        id="sidebar-scrim"
+        type="button"
+        aria-label="Close navigation"
+      ></button>
+    </div>
+    <div data-component="modal"></div>
+    <div data-component="toast"></div>
+    <script src="../src/services/mockData.js"></script>
+    <script src="../src/services/storageService.js"></script>
+    <script src="../src/services/dataService.js"></script>
+    <script src="../src/services/authService.js"></script>
+    <script src="../src/utils/validation.js"></script>
+    <script src="../src/scripts/toast.js"></script>
+    <script src="../src/scripts/modal.js"></script>
+    <script src="../src/scripts/componentLoader.js"></script>
+    <script src="../src/scripts/dashboard.js"></script>
+  </body>
+</html>

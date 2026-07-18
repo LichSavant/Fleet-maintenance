@@ -1,0 +1,60 @@
+.command-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.command-button svg,
+.profile-trigger > svg,
+.attention-strip svg,
+.command-breadcrumb svg,
+.sidebar-collapse svg,
+.command-page .sidebar-foot > .button svg {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 auto;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+}
+.profile-trigger > svg {
+  width: 15px;
+  margin-left: auto;
+}
+.attention-strip svg {
+  color: #ef6a6a;
+}
+.attention-strip span {
+  min-width: 0;
+  max-width: 100%;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.command-breadcrumb svg {
+  width: 13px;
+}
+.sidebar-collapse svg {
+  width: 17px;
+}
+.command-page .sidebar-foot > #logout-button {
+  min-height: 44px;
+}
+@media (max-width: 520px) {
+  .hero-asset {
+    min-height: auto;
+  }
+  .hero-footer {
+    position: static;
+    margin-top: 24px;
+  }
+  .hero-facts {
+    margin-top: 4px;
+  }
+  .attention-strip {
+    align-items: flex-start;
+    width: min(100%, calc(100vw - 30px));
+    height: auto;
+  }
+  .attention-strip span {
+    display: block;
+  }
+}

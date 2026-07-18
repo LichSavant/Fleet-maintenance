@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta
+      name="description"
+      content="Create a ForgeFleet frontend demo account"
+    />
+    <title>Create account · ForgeFleet</title>
+    <link rel="stylesheet" href="src/styles/variables.css" />
+    <link rel="stylesheet" href="src/styles/reset.css" />
+    <link rel="stylesheet" href="src/styles/global.css" />
+    <link rel="stylesheet" href="src/styles/components.css" />
+    <link rel="stylesheet" href="src/styles/pages/auth.css" />
+    <link rel="stylesheet" href="src/styles/pages/signup.css" />
+  </head>
+  <body data-public="true">
+    <main class="auth-page">
+      <section class="auth-hero">
+        <img src="src/assets/images/forgefleet-hero.png" alt="" />
+        <div class="auth-hero-copy">
+          <p class="eyebrow">Join fleet operations</p>
+          <h1>Your role. One command system.</h1>
+        </div>
+      </section>
+      <section class="auth-panel signup-panel">
+        <div class="signup-card">
+          <div class="auth-brand">
+            <span class="brand-mark">◆</span>
+            <div>
+              <strong>ForgeFleet</strong>
+              <p class="muted">Frontend account registration</p>
+            </div>
+          </div>
+          <div id="signup-content">
+            <p class="eyebrow">Create demo account</p>
+            <h1>Choose your operational role</h1>
+            <p class="muted">
+              Role selection controls the profile fields and destination
+              dashboard.
+            </p>
+            <form class="auth-form" id="signup-form" novalidate>
+              <fieldset class="field-wide">
+                <legend class="sr-only">Select a role</legend>
+                <div class="role-grid" id="role-grid"></div>
+                <span class="field-error" data-error-for="role"></span>
+              </fieldset>
+              <div class="form-grid">
+                <div class="field">
+                  <label for="full-name">Full name</label
+                  ><input id="full-name" name="name" autocomplete="name" /><span
+                    class="field-error"
+                    data-error-for="name"
+                  ></span>
+                </div>
+                <div class="field">
+                  <label for="signup-email">Email address</label
+                  ><input
+                    id="signup-email"
+                    name="email"
+                    type="email"
+                    autocomplete="email"
+                  /><span class="field-error" data-error-for="email"></span>
+                </div>
+                <div class="field">
+                  <label for="signup-phone">Phone number</label
+                  ><input
+                    id="signup-phone"
+                    name="phone"
+                    type="tel"
+                    autocomplete="tel"
+                  /><span class="field-error" data-error-for="phone"></span>
+                </div>
+                <div class="field">
+                  <label for="signup-password">Password</label
+                  ><input
+                    id="signup-password"
+                    name="password"
+                    type="password"
+                    autocomplete="new-password"
+                  /><span class="field-error" data-error-for="password"></span>
+                </div>
+                <div class="field">
+                  <label for="confirm-password">Confirm password</label
+                  ><input
+                    id="confirm-password"
+                    name="confirmPassword"
+                    type="password"
+                    autocomplete="new-password"
+                  /><span
+                    class="field-error"
+                    data-error-for="confirmPassword"
+                  ></span>
+                </div>
+              </div>
+              <div
+                class="form-grid role-fields"
+                id="role-fields"
+                aria-live="polite"
+              ></div>
+              <label class="cluster"
+                ><input id="terms" name="terms" type="checkbox" /> I understand
+                this creates a local frontend demonstration account.</label
+              ><span class="field-error" data-error-for="terms"></span>
+              <p class="auth-message" id="signup-message" role="alert"></p>
+              <button class="button button-primary button-block" type="submit">
+                Create Account</button
+              ><a class="button button-ghost button-block" href="login.html"
+                >Already registered? Sign In</a
+              >
+            </form>
+          </div>
+        </div>
+      </section>
+    </main>
+    <script src="src/services/mockData.js"></script>
+    <script src="src/services/storageService.js"></script>
+    <script src="src/services/dataService.js"></script>
+    <script src="src/services/authService.js"></script>
+    <script src="src/utils/validation.js"></script>
+    <script src="src/scripts/pages/signup.js"></script>
+  </body>
+</html>

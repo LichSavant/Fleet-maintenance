@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Design System · ForgeFleet</title>
+    <link rel="stylesheet" href="src/styles/variables.css" />
+    <link rel="stylesheet" href="src/styles/reset.css" />
+    <link rel="stylesheet" href="src/styles/global.css" />
+    <link rel="stylesheet" href="src/styles/layout.css" />
+    <link rel="stylesheet" href="src/styles/components.css" />
+    <link rel="stylesheet" href="src/styles/utilities.css" />
+    <link rel="stylesheet" href="src/styles/responsive.css" />
+  </head>
+  <body>
+    <main class="main stack">
+      <header class="page-head">
+        <div>
+          <p class="eyebrow">ForgeFleet</p>
+          <h1>Design System</h1>
+          <p>Extracted dark industrial interface primitives.</p>
+        </div>
+        <a class="button" href="login.html">Return to sign in</a>
+      </header>
+      <section class="content-grid metrics-grid">
+        <article class="card metric-card">
+          <span class="metric-value">128</span><strong>Active vehicles</strong>
+          <p class="muted">Metric card</p>
+        </article>
+        <article class="card">
+          <h2>Buttons</h2>
+          <div class="cluster mt-4">
+            <button class="button button-primary">Primary</button
+            ><button class="button">Secondary</button
+            ><button class="button button-danger">Danger</button>
+          </div>
+        </article>
+        <article class="card">
+          <h2>Status badges</h2>
+          <div class="cluster mt-4">
+            <span class="badge badge-success">Active</span
+            ><span class="badge badge-warning">Maintenance</span
+            ><span class="badge badge-danger">Overdue</span>
+          </div>
+        </article>
+        <article class="card">
+          <h2>Form controls</h2>
+          <div class="field mt-4">
+            <label for="gallery-input">Vehicle search</label
+            ><input id="gallery-input" placeholder="Search vehicles" />
+          </div>
+        </article>
+      </section>
+      <section class="card">
+        <h2>Table</h2>
+        <div class="table-wrap mt-4">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Vehicle</th>
+                <th>Status</th>
+                <th>Mileage</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>FF 2048</td>
+                <td><span class="badge badge-success">Active</span></td>
+                <td>184,220 km</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+      <section class="content-grid two-column">
+        <article class="card">
+          <h2>Loading state</h2>
+          <p class="muted">Loading ForgeFleet records…</p>
+        </article>
+        <article class="card empty-state">
+          <strong>No matching records</strong>Adjust the active filters.
+        </article>
+      </section>
+    </main>
+  </body>
+</html>

@@ -1,0 +1,33 @@
+# Frontend functional test report
+
+Audit date: 2026-07-18
+
+| Test                        | Expected                                           | Actual                                                                | Status                    | Correction / retest                                                              |
+| --------------------------- | -------------------------------------------------- | --------------------------------------------------------------------- | ------------------------- | -------------------------------------------------------------------------------- |
+| Sign Up link                | Visible from Sign In                               | Opens `signup.html`                                                   | Pass                      | Added consistent auth action                                                     |
+| Driver registration service | Create normalized account and driver profile       | Stable `USR` record and linked driver created                         | Pass                      | Executed isolated storage test                                                   |
+| Mechanic registration       | Require mechanic profile fields                    | Conditional required fields and linked mechanic record                | Pass by code path         | Syntax/logic checked                                                             |
+| Manager/Admin codes         | Reject wrong, accept specified code                | Role-specific comparison implemented; codes excluded from profile     | Pass by code path         | Reviewed conditions                                                              |
+| Duplicate email             | Reject normalized duplicate                        | Lowercase duplicate rejected                                          | Pass                      | Executed isolated storage test                                                   |
+| Password rules              | Eight characters, letters/numbers, confirmation    | Field errors implemented                                              | Pass by code path         | Reviewed validation                                                              |
+| Seeded login                | Identify role from stored record                   | Data service returns active account and role                          | Pass                      | Existing seeded data retained                                                    |
+| Registered login            | Authenticate newly registered account              | Returned Driver role and session                                      | Pass                      | Executed isolated storage test                                                   |
+| Inactive login              | Reject inactive account                            | Specific inactive result handled                                      | Pass by code path         | Login service repaired                                                           |
+| Remember email              | Store limited email reference                      | Email only; removed when not selected/logout                          | Pass                      | Executed isolated storage test                                                   |
+| Cross-role guard            | Redirect to own dashboard                          | `auth-demo.js` compares body role and session role                    | Pass by code path         | Shared guard repaired                                                            |
+| Logout                      | Clear session/reference and redirect               | Central logout used in generic shell/dashboard                        | Pass by code path         | Shared auth repaired                                                             |
+| Required routes             | Every requested HTML path exists                   | All requested paths present                                           | Pass                      | Missing role routes added                                                        |
+| JavaScript syntax           | No parse failures                                  | 0 failures across project scripts                                     | Pass                      | `node --check` pass                                                              |
+| Sign-up responsive layout   | Fit desktop/mobile                                 | Checked at 1440×1000 and 390×844; mobile form corrected to one column | Pass                      | Headless visual retest required after final CSS correction                       |
+| Generic CRUD                | Add/edit/delete records through modal/localStorage | Shared management path remains operational                            | Pass by code path         | Existing engine retained                                                         |
+| Assignment conflict         | Reject duplicate active driver/vehicle             | Data service validation and related status updates                    | Pass by code path         | Relationship updates added                                                       |
+| Mileage service validation  | Reject lower/duplicate mileage and update vehicle  | Data-service function repaired                                        | Pass by service code path | Some generic mileage page submissions still use shared `upsert`; see limitations |
+| Mechanic task scoping       | Only assigned mechanic work                        | Generic maintenance page still exposes the shared dataset             | Partial                   | Requires a dedicated mechanic controller                                         |
+| Admin user safety rules     | Prevent self/last-admin deletion                   | Safe `deleteUser()` exists                                            | Partial                   | Generic table currently calls the lower-level remove path                        |
+
+## Remaining functional limitations
+
+- The generic management renderer is shared across roles. It does not yet provide every requested specialized mechanic progress control or Manager report filter.
+- Driver mileage UI uses the generic record form; the strict mileage service is implemented but the page still needs a dedicated submission controller to guarantee it is always used.
+- Admin user deletion safety exists in the service but must be wired into the generic delete action.
+- Interactive browser automation was unavailable in this environment; account service flows were exercised in isolated browser-storage-compatible JavaScript and auth pages were visually rendered.

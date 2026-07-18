@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="description" content="ForgeFleet frontend prototype" />
+    <title>Profile · ForgeFleet</title>
+    <link rel="stylesheet" href="../src/styles/variables.css" />
+    <link rel="stylesheet" href="../src/styles/reset.css" />
+    <link rel="stylesheet" href="../src/styles/global.css" />
+    <link rel="stylesheet" href="../src/styles/layout.css" />
+    <link rel="stylesheet" href="../src/styles/components.css" />
+    <link rel="stylesheet" href="../src/styles/utilities.css" />
+    <link rel="stylesheet" href="../src/styles/responsive.css" />
+  </head>
+  <body
+    data-page="profile"
+    data-role="shared"
+    data-title="Profile"
+    data-depth="1"
+  >
+    <div class="app">
+      <div data-component="sidebar"></div>
+      <div class="shell">
+        <div data-component="topbar"></div>
+        <main class="main" id="page-content">
+          <div class="card">Loading ForgeFleet…</div>
+        </main>
+        <div data-component="footer"></div>
+      </div>
+    </div>
+    <div data-component="modal"></div>
+    <div data-component="toast"></div>
+    <script src="../src/services/mockData.js"></script>
+    <script src="../src/services/storageService.js"></script>
+    <script src="../src/services/dataService.js"></script>
+    <script src="../src/services/authService.js"></script>
+    <script>
+      const ffSharedSession = ForgeFleetAuth.get();
+      if (ffSharedSession) document.body.dataset.role = ffSharedSession.role;
+    </script>
+    <script src="../src/utils/validation.js"></script>
+    <script src="../src/scripts/toast.js"></script>
+    <script src="../src/scripts/modal.js"></script>
+    <script src="../src/scripts/componentLoader.js"></script>
+    <script src="../src/scripts/navigation.js"></script>
+    <script src="../src/scripts/app.js"></script>
+  </body>
+</html>

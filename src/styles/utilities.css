@@ -1,0 +1,31 @@
+.hidden {
+  display: none !important;
+}
+.stack {
+  display: grid;
+  gap: 16px;
+}
+.cluster {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.text-accent {
+  color: var(--color-accent);
+}
+.text-danger {
+  color: var(--color-danger);
+}
+.text-success {
+  color: var(--color-success);
+}
+.mt-4 {
+  margin-top: 1rem;
+}
+.mb-4 {
+  margin-bottom: 1rem;
+}
+.align-right {
+  text-align: right;
+}
