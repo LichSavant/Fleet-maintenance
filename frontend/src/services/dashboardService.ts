@@ -1,15 +1,15 @@
 import type { AuthUser } from "../types/auth";
 import type {
   AuditEvent,
+  FleetState,
   MaintenanceHistoryRecord,
-  MaintenanceSchedule,
   MaintenanceWorkOrder,
   MileageLog,
+  MileageMaintenanceStatus,
   Vehicle,
   VehicleAssignment,
   VehicleServiceMileageStatus,
 } from "../types/fleet";
-import { fleetDataService } from "./fleetDataService";
 import { mileageService } from "./mileageService";
 import { sharedViewService } from "./sharedViewService";
 
@@ -33,11 +33,6 @@ export interface ServiceHistoryView extends MaintenanceHistoryRecord {
   vehicle: Vehicle;
 }
 
-export interface ScheduleView extends MaintenanceSchedule {
-  service: string;
-  vehicle: Vehicle;
-}
-
 export interface MileageView extends MileageLog {
   driverName: string;
   vehicle: Vehicle;
@@ -55,6 +50,24 @@ export interface OperationalAlert {
   tone: "danger" | "warning";
 }
 
+const SERVICE_URGENCY: Record<MileageMaintenanceStatus, number> = {
+  OVERDUE: 0,
+  DUE_NOW: 1,
+  DUE_SOON: 2,
+  NO_HISTORY: 3,
+  UPCOMING: 4,
+};
+
+const OPERATIONAL_ENTITY_TYPES = new Set<AuditEvent["entityType"]>([
+  "assignment",
+  "maintenance_history",
+  "maintenance_schedule",
+  "maintenance_work_order",
+  "mileage_log",
+  "service_type",
+  "vehicle",
+]);
+
 function byNewest<T>(items: readonly T[], getDate: (item: T) => string) {
   return [...items].sort(
     (left, right) =>
@@ -62,44 +75,53 @@ function byNewest<T>(items: readonly T[], getDate: (item: T) => string) {
   );
 }
 
-function getVehicle(vehicleId: string) {
-  return fleetDataService
-    .getSnapshot()
-    .vehicles.find((vehicle) => vehicle.id === vehicleId);
+function getVehicle(data: FleetState, vehicleId: string) {
+  return data.vehicles.find((vehicle) => vehicle.id === vehicleId);
 }
 
-function getUserName(userId: string) {
+function getUserName(data: FleetState, userId: string) {
   return (
-    fleetDataService.getSnapshot().users.find((user) => user.id === userId)
-      ?.fullName ?? "Unknown user"
+    data.users.find((user) => user.id === userId)?.fullName ?? "Unknown user"
   );
 }
 
-function getDriverName(driverId: string) {
-  const profile = fleetDataService
-    .getSnapshot()
-    .driverProfiles.find((driver) => driver.id === driverId);
-  return profile ? getUserName(profile.userId) : "Unknown driver";
+function getDriverName(data: FleetState, driverId: string) {
+  const profile = data.driverProfiles.find((driver) => driver.id === driverId);
+  return profile ? getUserName(data, profile.userId) : "Unknown driver";
 }
 
-function enrichAssignments(assignments: readonly VehicleAssignment[]) {
+function enrichActivity(data: FleetState, events: readonly AuditEvent[]) {
+  return byNewest(events, (event) => event.createdAt).map<ActivityView>(
+    (event) => ({
+      ...event,
+      actorName: getUserName(data, event.userId),
+    }),
+  );
+}
+
+function enrichAssignments(
+  data: FleetState,
+  assignments: readonly VehicleAssignment[],
+) {
   return assignments.flatMap<AssignmentView>((assignment) => {
-    const vehicle = getVehicle(assignment.vehicleId);
+    const vehicle = getVehicle(data, assignment.vehicleId);
     if (!vehicle) return [];
     return [
       {
         ...assignment,
-        driverName: getDriverName(assignment.driverId),
+        driverName: getDriverName(data, assignment.driverId),
         vehicle,
       },
     ];
   });
 }
 
-function enrichMaintenance(records: readonly MaintenanceWorkOrder[]) {
-  const data = fleetDataService.getSnapshot();
+function enrichMaintenance(
+  data: FleetState,
+  records: readonly MaintenanceWorkOrder[],
+) {
   return records.flatMap<MaintenanceView>((record) => {
-    const vehicle = getVehicle(record.vehicleId);
+    const vehicle = getVehicle(data, record.vehicleId);
     const serviceType = data.serviceTypes.find(
       (item) => item.id === record.serviceTypeId,
     );
@@ -113,11 +135,11 @@ function enrichMaintenance(records: readonly MaintenanceWorkOrder[]) {
 }
 
 function enrichServiceMileage(
-  data: ReturnType<typeof fleetDataService.getSnapshot>,
+  data: FleetState,
   statuses: readonly VehicleServiceMileageStatus[],
 ) {
   return statuses.flatMap<ServiceMileageView>((status) => {
-    const vehicle = data.vehicles.find((item) => item.id === status.vehicleId);
+    const vehicle = getVehicle(data, status.vehicleId);
     const serviceType = data.serviceTypes.find(
       (item) => item.id === status.serviceTypeId,
     );
@@ -127,108 +149,100 @@ function enrichServiceMileage(
   });
 }
 
-function enrichHistory(records: readonly MaintenanceHistoryRecord[]) {
+function enrichHistory(
+  data: FleetState,
+  records: readonly MaintenanceHistoryRecord[],
+) {
   return records.flatMap<ServiceHistoryView>((record) => {
-    const vehicle = getVehicle(record.vehicleId);
-    const serviceType = fleetDataService
-      .getSnapshot()
-      .serviceTypes.find((item) => item.id === record.serviceTypeId);
+    const vehicle = getVehicle(data, record.vehicleId);
+    const serviceType = data.serviceTypes.find(
+      (item) => item.id === record.serviceTypeId,
+    );
     return vehicle && serviceType
       ? [{ ...record, service: serviceType.name, vehicle }]
       : [];
   });
 }
 
-function enrichSchedules(schedules: readonly MaintenanceSchedule[]) {
-  return schedules.flatMap<ScheduleView>((schedule) => {
-    const vehicle = getVehicle(schedule.vehicleId);
-    const serviceType = fleetDataService
-      .getSnapshot()
-      .serviceTypes.find((item) => item.id === schedule.serviceTypeId);
-    return vehicle && serviceType
-      ? [{ ...schedule, service: serviceType.name, vehicle }]
-      : [];
-  });
-}
-
-function enrichMileage(submissions: readonly MileageLog[]) {
+function enrichMileage(data: FleetState, submissions: readonly MileageLog[]) {
   return submissions.flatMap<MileageView>((submission) => {
-    const vehicle = getVehicle(submission.vehicleId);
+    const vehicle = getVehicle(data, submission.vehicleId);
     if (!vehicle) return [];
     return [
       {
         ...submission,
-        driverName: getDriverName(submission.driverId),
+        driverName: getDriverName(data, submission.driverId),
         vehicle,
       },
     ];
   });
 }
 
-function getNotificationsForUser(user: AuthUser) {
-  return sharedViewService.getNotifications(
-    fleetDataService.getSnapshot(),
-    user,
+function sortServiceMileage(statuses: readonly ServiceMileageView[]) {
+  return [...statuses].sort(
+    (left, right) =>
+      SERVICE_URGENCY[left.status] - SERVICE_URGENCY[right.status] ||
+      (left.remainingDistance ?? Number.POSITIVE_INFINITY) -
+        (right.remainingDistance ?? Number.POSITIVE_INFINITY) ||
+      left.service.localeCompare(right.service),
   );
+}
+
+function getActiveAssignments(data: FleetState) {
+  return data.assignments.filter(
+    (assignment) => assignment.status === "Active",
+  );
+}
+
+function getNotificationsForUser(data: FleetState, user: AuthUser) {
+  return sharedViewService.getNotifications(data, user);
 }
 
 export const dashboardService = {
   getNotificationsForUser,
 
-  getAdminDashboard() {
-    const data = fleetDataService.getSnapshot();
+  getAdminDashboard(data: FleetState) {
+    const activeAssignments = getActiveAssignments(data);
+    const assignedVehicleIds = new Set(
+      activeAssignments.map((assignment) => assignment.vehicleId),
+    );
     const serviceStatuses = mileageService.getFleetServiceStatuses(data);
-    const activeVehicles = data.vehicles.filter(
-      (vehicle) => vehicle.status === "Active",
-    ).length;
-    const pendingWork = data.maintenanceWorkOrders.filter(
-      (record) =>
-        record.status !== "completed" && record.status !== "cancelled",
-    ).length;
-    const recentActivity: ActivityView[] = byNewest(
-      data.auditEvents,
-      (activity) => activity.createdAt,
-    ).map((activity) => ({
-      ...activity,
-      actorName: getUserName(activity.userId),
-    }));
 
     return {
-      activeVehicles,
-      maintenanceRecords:
-        data.maintenanceWorkOrders.length + data.maintenanceHistory.length,
-      pendingWork,
-      recentActivity,
-      serviceAttention: serviceStatuses.filter((item) =>
-        ["DUE_SOON", "DUE_NOW", "OVERDUE"].includes(item.status),
+      activeUsers: data.users.filter((user) => user.status === "Active").length,
+      assignedVehicles: assignedVehicleIds.size,
+      availableVehicles: data.vehicles.filter(
+        (vehicle) =>
+          vehicle.status === "Active" && !assignedVehicleIds.has(vehicle.id),
       ).length,
-      serviceHistoryGaps: serviceStatuses.filter(
-        (item) => item.status === "NO_HISTORY",
+      dueSoonServices: serviceStatuses.filter(
+        (item) => item.status === "DUE_SOON",
       ).length,
+      overdueServices: serviceStatuses.filter(
+        (item) => item.status === "OVERDUE",
+      ).length,
+      recentActivity: enrichActivity(data, data.auditEvents).slice(0, 6),
       totalUsers: data.users.length,
       totalVehicles: data.vehicles.length,
+      underMaintenanceVehicles: data.vehicles.filter(
+        (vehicle) => vehicle.status === "Maintenance",
+      ).length,
     };
   },
 
-  getManagerDashboard(userId: string) {
-    const data = fleetDataService.getSnapshot();
-    const managerProfile = data.managerProfiles.find(
-      (profile) => profile.userId === userId,
+  getManagerDashboard(data: FleetState, userId: string) {
+    const activeAssignments = getActiveAssignments(data);
+    const assignedVehicleIds = new Set(
+      activeAssignments.map((assignment) => assignment.vehicleId),
     );
-    const currentAssignments = enrichAssignments(
-      data.assignments.filter((assignment) => assignment.status === "Active"),
+    const serviceMileageStatuses = sortServiceMileage(
+      enrichServiceMileage(data, mileageService.getFleetServiceStatuses(data)),
     );
-    const serviceMileageStatuses = enrichServiceMileage(
-      data,
-      mileageService.getFleetServiceStatuses(data),
+    const dueSoonServices = serviceMileageStatuses.filter(
+      (item) => item.status === "DUE_SOON",
     );
-    const driverActivity = byNewest(
-      enrichMileage(data.mileageLogs),
-      (submission) => submission.logDate,
-    );
-    const recentSchedules = byNewest(
-      enrichSchedules(data.maintenanceSchedules),
-      (schedule) => schedule.createdAt,
+    const overdueServices = serviceMileageStatuses.filter(
+      (item) => item.status === "OVERDUE",
     );
     const operationalAlerts: OperationalAlert[] = [
       ...serviceMileageStatuses
@@ -255,26 +269,48 @@ export const dashboardService = {
     ];
 
     return {
+      activeAssignments: enrichAssignments(data, activeAssignments),
       availableVehicles: data.vehicles.filter(
-        (vehicle) => vehicle.status === "Active",
+        (vehicle) =>
+          vehicle.status === "Active" && !assignedVehicleIds.has(vehicle.id),
       ).length,
-      currentAssignments,
-      driverActivity,
-      managerProfile,
+      dueSoonServices,
+      managerProfile: data.managerProfiles.find(
+        (profile) => profile.userId === userId,
+      ),
+      openWorkOrders: enrichMaintenance(
+        data,
+        data.maintenanceWorkOrders.filter(
+          (record) =>
+            record.status !== "completed" && record.status !== "cancelled",
+        ),
+      ),
       operationalAlerts,
-      recentSchedules,
-      serviceMileageStatuses,
+      overdueServices,
+      recentOperationalEvents: enrichActivity(
+        data,
+        data.auditEvents.filter((event) =>
+          OPERATIONAL_ENTITY_TYPES.has(event.entityType),
+        ),
+      ).slice(0, 6),
+      totalMaintenanceCost: data.maintenanceHistory.reduce(
+        (total, record) => total + record.totalCost,
+        0,
+      ),
       totalVehicles: data.vehicles.length,
+      unassignedVehicles: data.vehicles.filter(
+        (vehicle) => !assignedVehicleIds.has(vehicle.id),
+      ).length,
     };
   },
 
-  getMechanicDashboard(user: AuthUser) {
-    const data = fleetDataService.getSnapshot();
+  getMechanicDashboard(data: FleetState, user: AuthUser) {
     const mechanicProfile = data.mechanicProfiles.find(
       (profile) => profile.userId === user.id,
     );
     const assignedWork = mechanicProfile
       ? enrichMaintenance(
+          data,
           data.maintenanceWorkOrders.filter(
             (record) => record.assignedMechanicId === mechanicProfile.id,
           ),
@@ -283,34 +319,35 @@ export const dashboardService = {
     const recentServiceHistory = mechanicProfile
       ? byNewest(
           enrichHistory(
+            data,
             data.maintenanceHistory.filter(
               (record) => record.mechanicId === mechanicProfile.id,
             ),
           ),
           (record) => record.serviceDate,
-        )
+        ).slice(0, 6)
       : [];
 
     return {
       assignedWork,
-      completedService: assignedWork.filter(
-        (record) => record.status === "completed",
-      ).length,
+      completedRecently: recentServiceHistory,
       inProgress: assignedWork.filter(
         (record) => record.status === "in_progress",
       ).length,
       mechanicProfile,
-      notifications: getNotificationsForUser(user),
-      pendingJobs: assignedWork.filter(
+      notifications: getNotificationsForUser(data, user).slice(0, 6),
+      openAssignedWork: assignedWork.filter(
         (record) =>
-          record.status === "assigned" || record.status === "scheduled",
+          record.status !== "completed" && record.status !== "cancelled",
+      ),
+      scheduled: assignedWork.filter(
+        (record) =>
+          record.status === "scheduled" || record.status === "assigned",
       ).length,
-      recentServiceHistory,
     };
   },
 
-  getDriverDashboard(user: AuthUser) {
-    const data = fleetDataService.getSnapshot();
+  getDriverDashboard(data: FleetState, user: AuthUser) {
     const driverProfile = data.driverProfiles.find(
       (profile) => profile.userId === user.id,
     );
@@ -322,31 +359,55 @@ export const dashboardService = {
         )
       : undefined;
     const assignedVehicle = activeAssignment
-      ? getVehicle(activeAssignment.vehicleId)
+      ? getVehicle(data, activeAssignment.vehicleId)
       : undefined;
     const recentSubmissions = driverProfile
       ? byNewest(
           enrichMileage(
+            data,
             data.mileageLogs.filter(
               (submission) => submission.driverId === driverProfile.id,
             ),
           ),
           (submission) => submission.logDate,
+        ).slice(0, 6)
+      : [];
+    const nextRequiredServices = assignedVehicle
+      ? sortServiceMileage(
+          enrichServiceMileage(
+            data,
+            mileageService.getVehicleServiceStatuses(data, assignedVehicle.id),
+          ),
         )
       : [];
-    const maintenanceReminders = assignedVehicle
-      ? enrichServiceMileage(
-          data,
-          mileageService.getVehicleServiceStatuses(data, assignedVehicle.id),
-        )
+    const recentServiceHistory = assignedVehicle
+      ? byNewest(
+          enrichHistory(
+            data,
+            data.maintenanceHistory.filter(
+              (record) => record.vehicleId === assignedVehicle.id,
+            ),
+          ),
+          (record) => record.serviceDate,
+        ).slice(0, 6)
       : [];
 
     return {
       activeAssignment,
       assignedVehicle,
       driverProfile,
-      maintenanceReminders,
-      notifications: getNotificationsForUser(user),
+      dueSoonServices: nextRequiredServices.filter(
+        (item) => item.status === "DUE_SOON",
+      ).length,
+      latestMileageEntry: assignedVehicle
+        ? mileageService.getLatestVehicleLog(data, assignedVehicle.id)
+        : undefined,
+      nextRequiredServices,
+      notifications: getNotificationsForUser(data, user).slice(0, 6),
+      overdueServices: nextRequiredServices.filter(
+        (item) => item.status === "OVERDUE",
+      ).length,
+      recentServiceHistory,
       recentSubmissions,
     };
   },

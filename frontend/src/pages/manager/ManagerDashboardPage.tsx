@@ -1,24 +1,46 @@
 import { DashboardList } from "../../components/common/DashboardList";
 import { DashboardMetric } from "../../components/common/DashboardMetric";
+import { ErrorState } from "../../components/common/ErrorState";
+import { ManagementLoadingState } from "../../components/common/ManagementLoadingState";
 import { PageHeader } from "../../components/layout/PageHeader";
 import { useAuth } from "../../hooks/useAuth";
+import { useFleetData } from "../../hooks/useFleetData";
 import { dashboardService } from "../../services/dashboardService";
 import { formatDate, formatNumber } from "../../utils/formatDate";
 import { formatStatus } from "../../utils/formatStatus";
 import { getStatusTone } from "../../utils/statusTone";
 
+const COST_FORMATTER = new Intl.NumberFormat(undefined, {
+  currency: "PHP",
+  style: "currency",
+});
+
 export default function ManagerDashboardPage() {
   const { user } = useAuth();
-  if (!user) return null;
+  const { data, error, isLoading, reload } = useFleetData();
 
-  const dashboard = dashboardService.getManagerDashboard(user.id);
+  if (!user) return null;
+  if (isLoading) {
+    return <ManagementLoadingState label="Loading manager dashboard" />;
+  }
+  if (error || !data) {
+    return (
+      <ErrorState
+        description={error || "The fleet records are unavailable."}
+        onRetry={() => void reload()}
+        title="Manager dashboard unavailable"
+      />
+    );
+  }
+
+  const dashboard = dashboardService.getManagerDashboard(data, user.id);
 
   return (
     <div className="role-dashboard-page">
       <PageHeader
         breadcrumbs={[{ label: "Manager" }, { label: "Dashboard" }]}
         eyebrow="Fleet operations"
-        subtitle="Availability, assignments, maintenance, and schedules calculated from shared fleet records."
+        subtitle="Calculated from the current browser-persisted demonstration records; this is not live server data."
         title="Manager dashboard"
       />
 
@@ -32,97 +54,85 @@ export default function ManagerDashboardPage() {
           value={dashboard.availableVehicles}
         />
         <DashboardMetric
-          label="Current assignments"
-          value={dashboard.currentAssignments.length}
+          label="Active assignments"
+          value={dashboard.activeAssignments.length}
         />
         <DashboardMetric
-          detail="Due soon, due now, or overdue"
-          label="Mileage service attention"
-          value={
-            dashboard.serviceMileageStatuses.filter((item) =>
-              ["DUE_SOON", "DUE_NOW", "OVERDUE"].includes(item.status),
-            ).length
-          }
+          label="Unassigned vehicles"
+          value={dashboard.unassignedVehicles}
         />
         <DashboardMetric
-          label="Operational alerts"
-          value={dashboard.operationalAlerts.length}
+          label="Due-soon services"
+          value={dashboard.dueSoonServices.length}
+        />
+        <DashboardMetric
+          label="Overdue services"
+          value={dashboard.overdueServices.length}
+        />
+        <DashboardMetric
+          label="Open work orders"
+          value={dashboard.openWorkOrders.length}
+        />
+        <DashboardMetric
+          detail="Recorded completed-service cost"
+          label="Maintenance cost"
+          value={COST_FORMATTER.format(dashboard.totalMaintenanceCost)}
         />
       </section>
 
       <div className="dashboard-sections-grid">
         <DashboardList
           emptyDescription="Active driver and vehicle pairings will appear here."
-          emptyTitle="No current assignments"
+          emptyTitle="No active assignments"
           eyebrow="Assignments"
-          items={dashboard.currentAssignments.map((assignment) => ({
+          items={dashboard.activeAssignments.slice(0, 6).map((assignment) => ({
             description: `${assignment.driverName} · assigned ${formatDate(assignment.startDate)}`,
             id: assignment.id,
             status: assignment.vehicle.status,
             title: `${assignment.vehicle.plateNumber} · ${assignment.vehicle.model}`,
             tone: getStatusTone(assignment.vehicle.status),
           }))}
-          title="Current assignments"
+          title="Active assignments"
         />
         <DashboardList
-          emptyDescription="Due service or missing completed-service history will appear here."
-          emptyTitle="No service attention required"
+          emptyDescription="Open work orders will appear here."
+          emptyTitle="No open work orders"
+          eyebrow="Maintenance workflow"
+          items={dashboard.openWorkOrders.slice(0, 6).map((workOrder) => ({
+            description: `${workOrder.vehicle.plateNumber} · scheduled ${formatDate(workOrder.scheduledDate)}`,
+            id: workOrder.id,
+            status: formatStatus(workOrder.status),
+            title: workOrder.service,
+            tone: getStatusTone(workOrder.status),
+          }))}
+          title="Open work orders"
+        />
+        <DashboardList
+          emptyDescription="Due service exceptions will appear here."
+          emptyTitle="No mileage-based service exceptions"
           eyebrow="Mileage-based maintenance"
-          items={dashboard.serviceMileageStatuses
-            .filter((item) => item.status !== "UPCOMING")
-            .slice(0, 8)
+          items={[...dashboard.overdueServices, ...dashboard.dueSoonServices]
+            .slice(0, 6)
             .map((item) => ({
-              description:
-                item.status === "NO_HISTORY"
-                  ? `${item.vehicle.plateNumber} · ${formatNumber(item.currentMileage)} km current · no completed-service history`
-                  : `${item.vehicle.plateNumber} · ${formatNumber(item.currentMileage)} km current · ${formatNumber(item.lastCompletedServiceMileage ?? 0)} km last · ${formatNumber(item.recommendedIntervalKm)} km interval · ${formatNumber(item.nextServiceMileage ?? 0)} km next · ${formatNumber(item.remainingDistance ?? 0)} km remaining`,
+              description: `${item.vehicle.plateNumber} · ${formatNumber(item.currentMileage)} km current · ${formatNumber(item.nextServiceMileage ?? 0)} km next · ${formatNumber(item.remainingDistance ?? 0)} km remaining`,
               id: `${item.vehicleId}-${item.serviceTypeId}`,
               status: formatStatus(item.status),
               title: item.service,
               tone: getStatusTone(item.status),
             }))}
-          title="Service attention and history gaps"
+          title="Due-soon and overdue services"
         />
         <DashboardList
-          emptyDescription="Submitted driver mileage will appear here."
-          emptyTitle="No driver activity"
-          eyebrow="Driver records"
-          items={dashboard.driverActivity.slice(0, 4).map((submission) => ({
-            description: `${submission.driverName} · ${submission.vehicle.plateNumber}`,
-            id: submission.id,
-            meta: formatDate(submission.logDate),
-            status: `${formatNumber(submission.odometerReading)} km`,
-            title: submission.notes,
+          emptyDescription="Audit events for fleet operations will appear here."
+          emptyTitle="No operational events"
+          eyebrow="Audit trail"
+          items={dashboard.recentOperationalEvents.map((event) => ({
+            description: `${event.actorName} · ${event.description}`,
+            id: event.id,
+            meta: formatDate(event.createdAt),
+            title: event.action,
           }))}
-          title="Driver activity"
-        />
-        <DashboardList
-          emptyDescription="Operational exceptions will appear here."
-          emptyTitle="No operational alerts"
-          eyebrow="Attention required"
-          items={dashboard.operationalAlerts.map((alert) => ({
-            description: alert.description,
-            id: alert.id,
-            status: alert.tone === "danger" ? "Overdue" : "Due now",
-            title: alert.title,
-            tone: alert.tone,
-          }))}
-          title="Operational alerts"
-        />
-        <DashboardList
-          className="dashboard-section-wide"
-          emptyDescription="Newly created schedules will appear here."
-          emptyTitle="No recent schedules"
-          eyebrow="Planning"
-          items={dashboard.recentSchedules.slice(0, 4).map((schedule) => ({
-            description: `${schedule.vehicle.plateNumber} · planned ${formatDate(schedule.dueDate)}`,
-            id: schedule.id,
-            meta: `Created ${formatDate(schedule.createdAt)}`,
-            status: schedule.status,
-            title: schedule.service,
-            tone: getStatusTone(schedule.status),
-          }))}
-          title="Recent manual plans"
+          title="Recent operational events"
         />
       </div>
     </div>

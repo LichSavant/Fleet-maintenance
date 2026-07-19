@@ -118,6 +118,38 @@ This checklist is intentionally left unchecked for formal acceptance testing. Th
   - Manual test: Try deactivation with active links, end or close those links, confirm the dialogs, deactivate, and verify every historical assignment and maintenance foreign key still resolves after refresh.
   - Status: Completed — no destructive delete operation exists for these entities, active links are protected, and automated tests verify archived records retain historical references.
 
+## Completed data-derived role dashboards
+
+- [x] Administrator dashboard selectors
+  - Expected behavior: Total/active users, total/available/assigned/under-maintenance vehicles, due-soon/overdue services, and recent audit activity are calculated from the current centralized records.
+  - Relevant files: `frontend/src/services/dashboardService.ts`, `frontend/src/pages/admin/AdminDashboardPage.tsx`, `frontend/src/services/dashboardService.test.ts`
+  - Manual test: Change a user status, create/end an assignment, change a vehicle status, cross a mileage threshold, and create an audited record; confirm each administrator summary and activity item changes after the shared state event without refreshing.
+  - Status: Completed — the selector accepts the current `FleetState`, joins audit actors by user ID, and contains no dashboard-specific data collection.
+
+- [x] Manager dashboard selectors
+  - Expected behavior: Fleet availability, active assignments, unassigned vehicles, due-soon/overdue services, open work orders, completed-maintenance cost, and recent operational audit events are derived from current records.
+  - Relevant files: `frontend/src/services/dashboardService.ts`, `frontend/src/pages/manager/ManagerDashboardPage.tsx`, `frontend/src/services/dashboardService.test.ts`
+  - Manual test: Assign an available vehicle, create/transition a work order, complete maintenance with cost, and submit threshold-crossing mileage; confirm the manager dashboard counts, cost, service list, and event list update from the same records.
+  - Status: Completed — availability excludes actively assigned vehicles, unassigned and open-work counts use linked records, and cost is summed from maintenance history rather than a static dashboard value.
+
+- [x] Mechanic current-user dashboard
+  - Expected behavior: The authenticated user resolves to a mechanic profile through `userId`; only that profile's scheduled/assigned/in-progress work, completed history, linked vehicle/service details, and notifications are displayed.
+  - Relevant files: `frontend/src/services/dashboardService.ts`, `frontend/src/pages/mechanic/MechanicDashboardPage.tsx`, `frontend/src/services/dashboardService.test.ts`
+  - Manual test: Sign in as each mechanic fixture, compare their work/history/notifications, transition one assigned work order, and confirm the other mechanic's records never appear.
+  - Status: Completed — focused tests resolve both mechanic profiles independently and assert all returned work/history/notifications belong to the active session user.
+
+- [x] Driver current-user dashboard
+  - Expected behavior: The authenticated user resolves to a driver profile and active assignment; the dashboard shows that vehicle, current/latest mileage, prioritized service calculations, due-soon/overdue counts, vehicle service history, driver submissions, and user notifications.
+  - Relevant files: `frontend/src/services/dashboardService.ts`, `frontend/src/pages/driver/DriverDashboardPage.tsx`, `frontend/src/services/dashboardService.test.ts`, `frontend/src/services/fleetOperationsService.test.ts`
+  - Manual test: Sign in as an assigned driver and an unassigned driver, create/end an assignment, submit mileage, and complete service; verify the dashboard changes immediately and never shows another driver's assignment or submissions.
+  - Status: Completed — all joins begin with the session user ID, missing relationships produce useful empty states, and assignment mutation tests verify the current driver view changes with centralized state.
+
+- [x] Dashboard state coherence and demonstration labeling
+  - Expected behavior: All four dashboards subscribe to the shared `FleetState`, show loading/error/empty states, use no static dashboard-data object, expose no inert action, and identify browser-persisted records as demonstration rather than live server data.
+  - Relevant files: `frontend/src/hooks/useFleetData.ts`, `frontend/src/services/dashboardService.ts`, `frontend/src/pages/admin/AdminDashboardPage.tsx`, `frontend/src/pages/manager/ManagerDashboardPage.tsx`, `frontend/src/pages/mechanic/MechanicDashboardPage.tsx`, `frontend/src/pages/driver/DriverDashboardPage.tsx`
+  - Manual test: Keep a dashboard mounted while performing a supported mutation, confirm its state-change event updates the view, inspect the empty/error paths, and verify every visible dashboard control has a valid implementation.
+  - Status: Completed — selectors are pure state-in/state-out functions and every dashboard renders from the subscribed snapshot; no shortcut buttons or placeholder routes are present on these pages.
+
 ## Required capabilities
 
 - [ ] Vehicle inventory management
@@ -284,4 +316,4 @@ This checklist is intentionally left unchecked for formal acceptance testing. Th
   - Expected behavior: `npm run lint`, `npm run typecheck`, `npm run test`, and `npm run build` all exit successfully, with new mileage-boundary, authorization, audit, and integrity tests included.
   - Relevant files: `frontend/package.json`, all `frontend/src/**/*.test.ts` and `frontend/src/**/*.test.tsx`
   - Manual test: Run all four commands from `frontend/` and compare the test inventory with every requirement above.
-  - Status: Current relationship-integrity baseline passes: format passed; lint passed; typecheck passed; 10 test files/91 tests passed; build passed with 123 modules transformed. Coverage includes duplicate plate/VIN/employee/license rejection, vehicle value validation, driver/vehicle assignment conflicts, inactive driver/mechanic rejection, under-maintenance vehicle rejection, strict dates, assignment ending, immediate driver-dashboard resolution, stored conflict recovery, active-link protection, planned-work protection, and non-destructive historical archival.
+  - Status: Current data-derived dashboard baseline passes: format passed; lint passed; typecheck passed; 10 test files/92 tests passed; build passed with 123 modules transformed. Dashboard coverage verifies every administrator/manager total, two independent mechanic profiles, signed-in driver relationships, notification scoping, recorded maintenance cost, audit/operational events, and immediate assignment-driven selector updates; prior relationship-integrity coverage remains green.

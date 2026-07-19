@@ -1,7 +1,10 @@
 import { DashboardList } from "../../components/common/DashboardList";
 import { DashboardMetric } from "../../components/common/DashboardMetric";
+import { ErrorState } from "../../components/common/ErrorState";
+import { ManagementLoadingState } from "../../components/common/ManagementLoadingState";
 import { PageHeader } from "../../components/layout/PageHeader";
 import { useAuth } from "../../hooks/useAuth";
+import { useFleetData } from "../../hooks/useFleetData";
 import { dashboardService } from "../../services/dashboardService";
 import { formatDate, formatNumber } from "../../utils/formatDate";
 import { formatStatus } from "../../utils/formatStatus";
@@ -9,16 +12,30 @@ import { getStatusTone } from "../../utils/statusTone";
 
 export default function MechanicDashboardPage() {
   const { user } = useAuth();
-  if (!user) return null;
+  const { data, error, isLoading, reload } = useFleetData();
 
-  const dashboard = dashboardService.getMechanicDashboard(user);
+  if (!user) return null;
+  if (isLoading) {
+    return <ManagementLoadingState label="Loading mechanic dashboard" />;
+  }
+  if (error || !data) {
+    return (
+      <ErrorState
+        description={error || "The fleet records are unavailable."}
+        onRetry={() => void reload()}
+        title="Mechanic dashboard unavailable"
+      />
+    );
+  }
+
+  const dashboard = dashboardService.getMechanicDashboard(data, user);
 
   return (
     <div className="role-dashboard-page">
       <PageHeader
         breadcrumbs={[{ label: "Mechanic" }, { label: "Dashboard" }]}
         eyebrow="Service workspace"
-        subtitle="Only work linked to the mechanic profile for the active session is included."
+        subtitle="Calculated from work, history, and notifications linked to the active session's mechanic profile in the demonstration records."
         title="Mechanic dashboard"
       />
 
@@ -30,52 +47,50 @@ export default function MechanicDashboardPage() {
           detail={
             dashboard.mechanicProfile?.specialization ?? "No linked profile"
           }
-          label="Assigned work"
+          label="Assigned work orders"
           value={dashboard.assignedWork.length}
         />
-        <DashboardMetric label="Pending jobs" value={dashboard.pendingJobs} />
+        <DashboardMetric label="Scheduled" value={dashboard.scheduled} />
+        <DashboardMetric label="In progress" value={dashboard.inProgress} />
         <DashboardMetric
-          label="Work in progress"
-          value={dashboard.inProgress}
-        />
-        <DashboardMetric
-          label="Completed service"
-          value={dashboard.completedService}
+          detail="Most recent linked history records"
+          label="Completed recently"
+          value={dashboard.completedRecently.length}
         />
       </section>
 
       <div className="dashboard-sections-grid">
         <DashboardList
-          emptyDescription="Work assigned to this mechanic will appear here."
-          emptyTitle="No assigned work"
+          emptyDescription="Open work assigned to this mechanic will appear here."
+          emptyTitle="No open assigned work"
           eyebrow="Work queue"
-          items={dashboard.assignedWork.map((record) => ({
-            description: `${record.vehicle.plateNumber} · planned ${formatDate(record.scheduledDate)} · ${record.mileageStatus ? `${formatStatus(record.mileageStatus.status)} (${record.mileageStatus.remainingDistance === null ? "no history" : `${formatNumber(record.mileageStatus.remainingDistance)} km remaining`})` : "mileage status unavailable"}`,
+          items={dashboard.openAssignedWork.map((record) => ({
+            description: `${record.vehicle.plateNumber} · ${record.vehicle.make} ${record.vehicle.model} · scheduled ${formatDate(record.scheduledDate)} · ${record.mileageStatus ? `${formatStatus(record.mileageStatus.status)} (${record.mileageStatus.remainingDistance === null ? "no service history" : `${formatNumber(record.mileageStatus.remainingDistance)} km remaining`})` : "mileage status unavailable"}`,
             id: record.id,
             status: formatStatus(record.status),
             title: record.service,
             tone: getStatusTone(record.status),
           }))}
-          title="Assigned work"
+          title="Assigned work orders"
         />
         <DashboardList
-          emptyDescription="Completed work for this mechanic will appear here."
-          emptyTitle="No service history"
+          emptyDescription="Completed work linked to this mechanic will appear here."
+          emptyTitle="No completed service history"
           eyebrow="Completed work"
-          items={dashboard.recentServiceHistory.map((record) => ({
-            description: `${record.vehicle.plateNumber} · ${record.vehicle.model}`,
+          items={dashboard.completedRecently.map((record) => ({
+            description: `${record.vehicle.plateNumber} · ${record.vehicle.make} ${record.vehicle.model} · ${formatNumber(record.odometerAtService)} km`,
             id: record.id,
             meta: formatDate(record.serviceDate),
             status: "Completed",
             title: record.service,
             tone: "success",
           }))}
-          title="Recent service history"
+          title="Completed recently"
         />
         <DashboardList
           className="dashboard-section-wide"
-          emptyDescription="Account-specific service notifications will appear here."
-          emptyTitle="No notifications"
+          emptyDescription="Notifications addressed to this mechanic will appear here."
+          emptyTitle="No relevant notifications"
           eyebrow="Account updates"
           items={dashboard.notifications.map((notification) => ({
             description: notification.message,
@@ -85,7 +100,7 @@ export default function MechanicDashboardPage() {
             title: notification.title,
             tone: notification.readAt ? "neutral" : "info",
           }))}
-          title="Notifications"
+          title="Relevant notifications"
         />
       </div>
     </div>

@@ -148,7 +148,7 @@ describe("fleet operational workflows", () => {
       data.assignments.length,
     );
     expect(
-      dashboardService.getDriverDashboard({
+      dashboardService.getDriverDashboard(data, {
         email: "driver@forgefleet.demo",
         fullName: "Carlo Reyes",
         id: "demo-user-driver",
@@ -169,12 +169,15 @@ describe("fleet operational workflows", () => {
       },
       "demo-user-manager",
     );
-    const dashboard = dashboardService.getDriverDashboard({
-      email: "maya@forgefleet.demo",
-      fullName: "Maya Torres",
-      id: "fleet-user-driver-maya",
-      role: "driver",
-    });
+    const dashboard = dashboardService.getDriverDashboard(
+      fleetDataService.getSnapshot(),
+      {
+        email: "maya@forgefleet.demo",
+        fullName: "Maya Torres",
+        id: "fleet-user-driver-maya",
+        role: "driver",
+      },
+    );
 
     expect(dashboard.activeAssignment?.id).toBe(assignment.id);
     expect(dashboard.assignedVehicle?.id).toBe("vehicle-nova-7710");
