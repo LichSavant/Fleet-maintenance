@@ -212,11 +212,17 @@ export function VehicleFormModal({
           </FormField>
           <FormField
             error={errors.currentMileage}
+            hint={
+              isEditing
+                ? "Current mileage is updated only through driver odometer logs."
+                : "Enter the vehicle's starting odometer reading."
+            }
             id="vehicle-mileage"
             label="Mileage"
             required
           >
             <Input
+              disabled={isEditing}
               min="0"
               onChange={(event) =>
                 update("currentMileage", Number(event.target.value))

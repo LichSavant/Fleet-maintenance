@@ -1,5 +1,6 @@
 import type { AuthUser } from "../types/auth";
 import type { FleetState } from "../types/fleet";
+import { mileageService } from "./mileageService";
 
 function byNewest<T>(items: readonly T[], getDate: (item: T) => string) {
   return [...items].sort(
@@ -34,7 +35,20 @@ export const sharedViewService = {
           (entry) => entry.logDate,
         )
       : [];
-    return { assignment, history, profile, vehicle };
+    const latestEntry = vehicle
+      ? mileageService.getLatestVehicleLog(data, vehicle.id)
+      : undefined;
+    const serviceStatuses = vehicle
+      ? mileageService.getVehicleServiceStatuses(data, vehicle.id)
+      : [];
+    return {
+      assignment,
+      history,
+      latestEntry,
+      profile,
+      serviceStatuses,
+      vehicle,
+    };
   },
 
   getProfile(data: FleetState, userId: string) {

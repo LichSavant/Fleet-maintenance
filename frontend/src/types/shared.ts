@@ -5,7 +5,8 @@ export type SharedFeatureErrorCode =
   | "invalid_profile"
   | "no_assignment"
   | "not_found"
-  | "unauthorized";
+  | "unauthorized"
+  | "vehicle_unavailable";
 
 export class SharedFeatureError extends Error {
   public readonly code: SharedFeatureErrorCode;

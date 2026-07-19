@@ -15,7 +15,9 @@ import { useFleetData } from "../../hooks/useFleetData";
 import { fleetDataService } from "../../services/fleetDataService";
 import { sharedViewService } from "../../services/sharedViewService";
 import type { MileageLog } from "../../types/fleet";
+import { SharedFeatureError } from "../../types/shared";
 import { formatDate } from "../../utils/formatDate";
+import { formatStatus } from "../../utils/formatStatus";
 import { getStatusTone } from "../../utils/statusTone";
 
 const today = new Date().toISOString().slice(0, 10);
@@ -27,6 +29,7 @@ export default function DriverMileagePage() {
   const [notes, setNotes] = useState("");
   const [submissionDate, setSubmissionDate] = useState(today);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [mileageError, setMileageError] = useState("");
   const [feedback, setFeedback] = useState<{
     message: string;
     tone: "error" | "success";
@@ -53,11 +56,39 @@ export default function DriverMileagePage() {
   const submitMileage = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setFeedback(null);
+    setMileageError("");
+    const odometerReading = Number(mileage);
+    const minimumReading = Math.max(
+      mileageView.vehicle?.currentMileage ?? 0,
+      mileageView.latestEntry?.odometerReading ?? 0,
+    );
+    if (!mileage.trim()) {
+      setMileageError("Enter an odometer reading.");
+      return;
+    }
+    if (!Number.isFinite(odometerReading)) {
+      setMileageError("Enter a numeric odometer reading.");
+      return;
+    }
+    if (odometerReading < 0) {
+      setMileageError("The odometer reading cannot be negative.");
+      return;
+    }
+    if (!Number.isInteger(odometerReading)) {
+      setMileageError("Enter a whole-number odometer reading.");
+      return;
+    }
+    if (odometerReading <= minimumReading) {
+      setMileageError(
+        `Enter an odometer reading greater than ${minimumReading.toLocaleString()} km.`,
+      );
+      return;
+    }
     setIsSubmitting(true);
     try {
       await fleetDataService.submitMileage(
         {
-          odometerReading: Number(mileage),
+          odometerReading,
           notes,
           submissionDate,
         },
@@ -70,6 +101,12 @@ export default function DriverMileagePage() {
         tone: "success",
       });
     } catch (submitError) {
+      if (
+        submitError instanceof SharedFeatureError &&
+        submitError.code === "invalid_mileage"
+      ) {
+        setMileageError(submitError.message);
+      }
       setFeedback({
         message:
           submitError instanceof Error
@@ -127,6 +164,22 @@ export default function DriverMileagePage() {
                       : "Not available"}
                   </dd>
                 </div>
+                <div>
+                  <dt>Latest mileage entry</dt>
+                  <dd>
+                    {mileageView.latestEntry
+                      ? `${mileageView.latestEntry.odometerReading.toLocaleString()} km`
+                      : "No previous entry"}
+                  </dd>
+                </div>
+                <div>
+                  <dt>Latest submission date</dt>
+                  <dd>
+                    {mileageView.latestEntry
+                      ? formatDate(mileageView.latestEntry.logDate)
+                      : "Not available"}
+                  </dd>
+                </div>
               </dl>
             </div>
           ) : (
@@ -138,14 +191,31 @@ export default function DriverMileagePage() {
         <Card eyebrow="New reading" title="Submit mileage">
           <form className="mileage-form" onSubmit={submitMileage}>
             <FormField
+              error={mileageError}
+              hint={
+                vehicle
+                  ? `Enter a whole number greater than ${Math.max(
+                      vehicle.currentMileage,
+                      mileageView.latestEntry?.odometerReading ?? 0,
+                    ).toLocaleString()} km.`
+                  : undefined
+              }
               id="mileage-reading"
               label="Odometer reading (km)"
               required
             >
               <Input
                 disabled={!vehicle}
-                min={vehicle?.currentMileage ?? 0}
-                onChange={(event) => setMileage(event.target.value)}
+                min={
+                  Math.max(
+                    vehicle?.currentMileage ?? 0,
+                    mileageView.latestEntry?.odometerReading ?? 0,
+                  ) + 1
+                }
+                onChange={(event) => {
+                  setMileage(event.target.value);
+                  setMileageError("");
+                }}
                 placeholder={
                   vehicle
                     ? String(vehicle.currentMileage)
@@ -188,6 +258,50 @@ export default function DriverMileagePage() {
           </form>
         </Card>
       </div>
+      <Card eyebrow="Mileage-based maintenance" title="Service mileage status">
+        <Table
+          caption="Derived service mileage status for the assigned vehicle"
+          columns={[
+            {
+              header: "Service",
+              key: "service",
+              render: (entry) =>
+                data.serviceTypes.find(
+                  (serviceType) => serviceType.id === entry.serviceTypeId,
+                )?.name ?? "Unknown service",
+            },
+            {
+              align: "right",
+              header: "Last service",
+              key: "last-service",
+              render: (entry) =>
+                entry.lastServiceMileage === null
+                  ? "No recorded service"
+                  : `${entry.lastServiceMileage.toLocaleString()} km`,
+            },
+            {
+              align: "right",
+              header: "Next service",
+              key: "next-service",
+              render: (entry) =>
+                `${entry.nextServiceMileage.toLocaleString()} km`,
+            },
+            {
+              header: "Status",
+              key: "status",
+              render: (entry) => (
+                <StatusBadge tone={getStatusTone(entry.status)}>
+                  {formatStatus(entry.status)}
+                </StatusBadge>
+              ),
+            },
+          ]}
+          emptyDescription="Active service intervals will appear here."
+          emptyTitle="No service intervals"
+          getRowKey={(entry) => entry.serviceTypeId}
+          rows={mileageView.serviceStatuses}
+        />
+      </Card>
       <Card eyebrow="Submission log" title="Previous mileage history">
         <Table<MileageLog>
           caption="Mileage submissions for the signed-in driver"

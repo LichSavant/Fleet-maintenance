@@ -38,6 +38,7 @@ import {
   FLEET_STATE_VERSION,
   readStoredFleetState,
 } from "./fleetStateMigration";
+import { mileageService } from "./mileageService";
 
 const STORAGE_KEY = "forgefleet.frontend.fleet-data.v3";
 const LEGACY_STORAGE_KEY = "forgefleet.frontend.fleet-data.v2";
@@ -446,6 +447,12 @@ function getActiveDriverAssignment(data: MutableFleetData, userId: string) {
       "No driver profile is linked to this account.",
     );
   }
+  if (profile.status !== "Assigned") {
+    throw new SharedFeatureError(
+      "no_assignment",
+      "A current vehicle assignment is required for mileage submission.",
+    );
+  }
   const assignment = data.assignments.find(
     (item) => item.driverId === profile.id && item.status === "Active",
   );
@@ -685,6 +692,12 @@ export const fleetDataService = {
     const vehicle = data.vehicles.find((item) => item.id === vehicleId);
     if (!vehicle) throw new ManagementError("not_found", "Vehicle not found.");
     validateVehicle(input, data, vehicleId);
+    if (input.currentMileage !== vehicle.currentMileage) {
+      throw new ManagementError(
+        "invalid_record",
+        "Record odometer changes through the assigned driver's mileage workflow.",
+      );
+    }
     if (
       input.status === "Out of Service" &&
       vehicle.status !== "Out of Service"
@@ -693,7 +706,6 @@ export const fleetDataService = {
     }
     Object.assign(vehicle, {
       ...input,
-      currentMileage: input.currentMileage,
       fleetNumber: input.fleetNumber.trim().toUpperCase(),
       make: input.make.trim(),
       model: input.model.trim(),
@@ -880,7 +892,7 @@ export const fleetDataService = {
     if (assignedDriver) {
       addNotification(data, {
         message: `${serviceType.name} for ${vehicle.fleetNumber} is scheduled for ${input.dueDate}.`,
-        relatedRoute: "/driver/maintenance",
+        relatedRoute: "/driver/mileage",
         title: "Upcoming maintenance reminder",
         type: "Reminder",
         userId: assignedDriver.userId,
@@ -1323,6 +1335,12 @@ export const fleetDataService = {
       actorUserId,
     );
     const vehicle = getVehicle(data, assignment.vehicleId);
+    if (vehicle.status !== "Active") {
+      throw new SharedFeatureError(
+        "vehicle_unavailable",
+        "Mileage cannot be submitted while the assigned vehicle is unavailable.",
+      );
+    }
     if (
       !isValidDate(input.submissionDate) ||
       input.submissionDate > today() ||
@@ -1334,8 +1352,7 @@ export const fleetDataService = {
       );
     }
     const previousEntries = data.mileageLogs.filter(
-      (entry) =>
-        entry.driverId === profile.id && entry.vehicleId === vehicle.id,
+      (entry) => entry.vehicleId === vehicle.id,
     );
     const latestSubmissionDate = previousEntries
       .map((entry) => entry.logDate.slice(0, 10))
@@ -1347,19 +1364,30 @@ export const fleetDataService = {
         `The submission date cannot be earlier than ${latestSubmissionDate}.`,
       );
     }
+    const latestVehicleLog = mileageService.getLatestVehicleLog(
+      data,
+      vehicle.id,
+    );
     const currentOdometer = Math.max(
       vehicle.currentMileage,
-      ...previousEntries.map((entry) => entry.odometerReading),
+      latestVehicleLog?.odometerReading ?? 0,
     );
     if (
+      !Number.isFinite(input.odometerReading) ||
       !Number.isInteger(input.odometerReading) ||
-      input.odometerReading < currentOdometer
+      input.odometerReading < 0 ||
+      input.odometerReading <= currentOdometer
     ) {
       throw new SharedFeatureError(
         "invalid_mileage",
-        `The odometer reading cannot be lower than ${currentOdometer.toLocaleString()} km.`,
+        `Enter an odometer reading greater than ${currentOdometer.toLocaleString()} km.`,
       );
     }
+    const previousServiceStatuses = mileageService.getVehicleServiceStatuses(
+      data,
+      vehicle.id,
+      currentOdometer,
+    );
     const submission = {
       driverId: profile.id,
       id: createId("mileage"),
@@ -1370,12 +1398,34 @@ export const fleetDataService = {
     } satisfies MutableFleetData["mileageLogs"][number];
     data.mileageLogs.push(submission);
     vehicle.currentMileage = input.odometerReading;
+    const nextServiceStatuses = mileageService.getVehicleServiceStatuses(
+      data,
+      vehicle.id,
+    );
+    const crossedThresholds = mileageService.getCrossedServiceThresholds(
+      previousServiceStatuses,
+      nextServiceStatuses,
+    );
     addNotification(data, {
       message: `${input.odometerReading.toLocaleString()} km was recorded for ${vehicle.fleetNumber}.`,
       relatedRoute: "/driver/mileage",
       title: "Mileage submission recorded",
       type: "Mileage",
       userId: actorUserId,
+    });
+    crossedThresholds.forEach((threshold) => {
+      const serviceType = data.serviceTypes.find(
+        (item) => item.id === threshold.serviceTypeId,
+      );
+      if (!serviceType) return;
+      const statusLabel = threshold.status.replace("_", " ");
+      addNotification(data, {
+        message: `${vehicle.fleetNumber} is ${statusLabel} for ${serviceType.name}. The next service mileage is ${threshold.nextServiceMileage.toLocaleString()} km.`,
+        relatedRoute: "/driver/mileage",
+        title: `${serviceType.name}: ${statusLabel}`,
+        type: "Reminder",
+        userId: actorUserId,
+      });
     });
     logActivity(
       data,

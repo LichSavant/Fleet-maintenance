@@ -12,6 +12,8 @@ export type ScheduleStatus = "Overdue" | "Upcoming" | "Converted" | "Cancelled";
 export type Priority = "Low" | "Medium" | "High";
 export type NotificationType =
   "Assignment" | "Maintenance" | "Mileage" | "Reminder" | "Schedule" | "System";
+export type MileageMaintenanceStatus =
+  "not_due" | "due_soon" | "due_now" | "overdue";
 export type AuditEntityType =
   | "assignment"
   | "maintenance_history"
@@ -85,6 +87,16 @@ export interface MileageLog {
   odometerReading: number;
   logDate: string;
   notes: string;
+}
+
+export interface VehicleServiceMileageStatus {
+  vehicleId: string;
+  serviceTypeId: string;
+  currentMileage: number;
+  lastServiceMileage: number | null;
+  nextServiceMileage: number;
+  dueSoonMileage: number;
+  status: MileageMaintenanceStatus;
 }
 
 export interface ServiceType {

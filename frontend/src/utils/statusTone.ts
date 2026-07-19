@@ -5,9 +5,14 @@ export function getStatusTone(status: string): StatusTone {
     return "success";
   }
   if (
-    ["Overdue", "Out of Service", "High", "cancelled", "Cancelled"].includes(
-      status,
-    )
+    [
+      "Overdue",
+      "Out of Service",
+      "High",
+      "cancelled",
+      "Cancelled",
+      "overdue",
+    ].includes(status)
   ) {
     return "danger";
   }
@@ -22,6 +27,8 @@ export function getStatusTone(status: string): StatusTone {
       "Medium",
       "scheduled",
       "assigned",
+      "due_soon",
+      "due_now",
     ].includes(status)
   ) {
     return "warning";

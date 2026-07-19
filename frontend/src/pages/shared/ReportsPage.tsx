@@ -2,8 +2,10 @@ import { ErrorState } from "../../components/common/ErrorState";
 import { ManagementLoadingState } from "../../components/common/ManagementLoadingState";
 import { PageHeader } from "../../components/layout/PageHeader";
 import { Card } from "../../components/ui/Card";
+import { Table } from "../../components/ui/Table";
 import { useFleetData } from "../../hooks/useFleetData";
 import { reportService } from "../../services/reportService";
+import { formatDate } from "../../utils/formatDate";
 
 interface ReportItem {
   label: string;
@@ -82,6 +84,44 @@ export default function ReportsPage() {
         <ReportCard items={reports.mileageSummary} title="Mileage summary" />
         <ReportCard items={reports.userRoleSummary} title="User-role summary" />
       </div>
+      <Card eyebrow="Manual odometer records" title="Recent mileage logs">
+        <Table
+          caption="Recent driver mileage logs"
+          columns={[
+            {
+              header: "Submission date",
+              key: "date",
+              render: ({ mileageLog }) => formatDate(mileageLog.logDate),
+            },
+            {
+              header: "Driver",
+              key: "driver",
+              render: ({ driver }) => driver.fullName,
+            },
+            {
+              header: "Vehicle",
+              key: "vehicle",
+              render: ({ vehicle }) => vehicle.fleetNumber,
+            },
+            {
+              align: "right",
+              header: "Odometer",
+              key: "odometer",
+              render: ({ mileageLog }) =>
+                `${mileageLog.odometerReading.toLocaleString()} km`,
+            },
+            {
+              header: "Notes",
+              key: "notes",
+              render: ({ mileageLog }) => mileageLog.notes || "No notes",
+            },
+          ]}
+          emptyDescription="Driver-submitted odometer readings will appear here."
+          emptyTitle="No mileage logs"
+          getRowKey={({ mileageLog }) => mileageLog.id}
+          rows={reports.recentMileageLogs}
+        />
+      </Card>
     </div>
   );
 }

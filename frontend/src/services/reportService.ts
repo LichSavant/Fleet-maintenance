@@ -31,25 +31,47 @@ export const reportService = {
       label: formatRole(role),
       value: data.users.filter((user) => user.role === role).length,
     }));
-    const recordedMileage = data.mileageLogs.reduce(
-      (total, submission) => total + submission.odometerReading,
-      0,
+    const loggedVehicleIds = new Set(
+      data.mileageLogs.map((submission) => submission.vehicleId),
     );
+    const loggedDistance = [...loggedVehicleIds].reduce((total, vehicleId) => {
+      const readings = data.mileageLogs
+        .filter((submission) => submission.vehicleId === vehicleId)
+        .map((submission) => submission.odometerReading);
+      return readings.length < 2
+        ? total
+        : total + Math.max(...readings) - Math.min(...readings);
+    }, 0);
     const latestReadings = data.vehicles.reduce(
       (total, vehicle) => total + vehicle.currentMileage,
       0,
     );
     const mileageSummary = [
       { label: "Submissions", value: data.mileageLogs.length },
-      { label: "Vehicles with readings", value: data.vehicles.length },
+      { label: "Vehicles with readings", value: loggedVehicleIds.size },
       { label: "Combined current odometers (km)", value: latestReadings },
-      { label: "Recorded reading total (km)", value: recordedMileage },
+      { label: "Distance between logged readings (km)", value: loggedDistance },
     ];
+    const recentMileageLogs = [...data.mileageLogs]
+      .sort((left, right) => right.logDate.localeCompare(left.logDate))
+      .flatMap((mileageLog) => {
+        const driverProfile = data.driverProfiles.find(
+          (profile) => profile.id === mileageLog.driverId,
+        );
+        const driver = driverProfile
+          ? data.users.find((user) => user.id === driverProfile.userId)
+          : undefined;
+        const vehicle = data.vehicles.find(
+          (item) => item.id === mileageLog.vehicleId,
+        );
+        return driver && vehicle ? [{ driver, mileageLog, vehicle }] : [];
+      });
 
     return {
       assignmentSummary,
       maintenanceStatus,
       mileageSummary,
+      recentMileageLogs,
       userRoleSummary,
       vehicleStatus,
     };
