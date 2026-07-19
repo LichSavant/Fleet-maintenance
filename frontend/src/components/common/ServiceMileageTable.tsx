@@ -8,7 +8,10 @@ import { StatusBadge } from "../ui/StatusBadge";
 import { Table } from "../ui/Table";
 
 interface ServiceMileageTableProps {
+  caption?: string;
   data: Pick<FleetState, "serviceTypes" | "vehicles">;
+  emptyDescription?: string;
+  emptyTitle?: string;
   rows: readonly VehicleServiceMileageStatus[];
   showVehicle?: boolean;
 }
@@ -18,23 +21,30 @@ function formatMileage(value: number | null) {
 }
 
 export function ServiceMileageTable({
+  caption = "Mileage-based service calculations",
   data,
+  emptyDescription = "Active service types will appear after they are defined.",
+  emptyTitle = "No service calculations",
   rows,
   showVehicle = false,
 }: ServiceMileageTableProps) {
   return (
     <Table<VehicleServiceMileageStatus>
-      caption="Mileage-based service calculations"
+      caption={caption}
       columns={[
         ...(showVehicle
           ? [
               {
                 header: "Vehicle",
                 key: "vehicle",
-                render: (entry: VehicleServiceMileageStatus) =>
-                  data.vehicles.find(
+                render: (entry: VehicleServiceMileageStatus) => {
+                  const vehicle = data.vehicles.find(
                     (vehicle) => vehicle.id === entry.vehicleId,
-                  )?.fleetNumber ?? "Unknown vehicle",
+                  );
+                  return vehicle
+                    ? `${vehicle.fleetNumber} · ${vehicle.plateNumber}`
+                    : "Unknown vehicle";
+                },
               },
             ]
           : []),
@@ -86,8 +96,8 @@ export function ServiceMileageTable({
           ),
         },
       ]}
-      emptyDescription="Active service types will appear after they are defined."
-      emptyTitle="No service calculations"
+      emptyDescription={emptyDescription}
+      emptyTitle={emptyTitle}
       getRowKey={(entry) => `${entry.vehicleId}-${entry.serviceTypeId}`}
       rows={[...rows]}
     />

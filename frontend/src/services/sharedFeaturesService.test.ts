@@ -340,25 +340,31 @@ describe("shared frontend features", () => {
     const reports = reportService.getReports(data);
 
     expect(
-      reports.vehicleStatus.reduce((total, item) => total + item.value, 0),
+      reports.vehicleInventory.byStatus.reduce(
+        (total, item) => total + item.value,
+        0,
+      ),
     ).toBe(data.vehicles.length);
     expect(
-      reports.maintenanceStatus.reduce((total, item) => total + item.value, 0),
-    ).toBe(data.maintenanceWorkOrders.length);
+      reports.workOrders.byStatus.reduce(
+        (total, item) => total + item.value,
+        0,
+      ),
+    ).toBe(reports.workOrders.total);
     expect(
-      reports.assignmentSummary.reduce((total, item) => total + item.value, 0),
-    ).toBe(data.assignments.length);
+      reports.assignments.byStatus.reduce(
+        (total, item) => total + item.value,
+        0,
+      ),
+    ).toBe(reports.assignments.total);
     expect(
-      reports.userRoleSummary.reduce((total, item) => total + item.value, 0),
+      reports.userRoles.byRole.reduce((total, item) => total + item.value, 0),
     ).toBe(data.users.length);
-    expect(reports.mileageSummary).toContainEqual({
-      label: "Submissions",
-      value: data.mileageLogs.length,
-    });
+    expect(reports.mileageByVehicle.totalLogs).toBe(data.mileageLogs.length);
     expect(
-      reports.serviceDueSummary.reduce((total, item) => total + item.value, 0),
-    ).toBe(reports.serviceMileageStatuses.length);
-    expect(reports.serviceMileageStatuses).toHaveLength(
+      reports.services.byStatus.reduce((total, item) => total + item.value, 0),
+    ).toBe(reports.services.total);
+    expect(reports.services.total).toBe(
       data.vehicles.length *
         data.serviceTypes.filter((item) => item.status === "Active").length,
     );

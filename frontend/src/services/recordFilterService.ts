@@ -9,6 +9,11 @@ import type {
   WorkOrderOperationalView,
 } from "./operationsViewService";
 import type { MileageLogReportView } from "./reportService";
+import {
+  matchesDateRange,
+  matchesNumberRange,
+  matchesSearch,
+} from "../utils/filtering";
 
 export interface TextFilter {
   search: string;
@@ -52,39 +57,6 @@ export interface WorkOrderFilters extends TextFilter, DateRangeFilter {
 
 export interface ServiceHistoryFilters
   extends TextFilter, DateRangeFilter, MileageRangeFilter {}
-
-function normalize(value: string | number | null | undefined) {
-  return String(value ?? "")
-    .trim()
-    .toLocaleLowerCase();
-}
-
-function matchesSearch(
-  search: string,
-  values: readonly (string | number | null | undefined)[],
-) {
-  const query = normalize(search);
-  return !query || values.some((value) => normalize(value).includes(query));
-}
-
-function matchesDateRange(value: string, from: string, to: string) {
-  return (!from || value >= from) && (!to || value <= to);
-}
-
-function optionalNumber(value: string) {
-  if (!value.trim()) return undefined;
-  const parsed = Number(value);
-  return Number.isFinite(parsed) ? parsed : undefined;
-}
-
-function matchesMileageRange(value: number, from: string, to: string) {
-  const minimum = optionalNumber(from);
-  const maximum = optionalNumber(to);
-  return (
-    (minimum === undefined || value >= minimum) &&
-    (maximum === undefined || value <= maximum)
-  );
-}
 
 export const recordFilterService = {
   filterVehicles(
@@ -196,7 +168,7 @@ export const recordFilterService = {
           filters.dateFrom,
           filters.dateTo,
         ) &&
-        matchesMileageRange(
+        matchesNumberRange(
           mileageLog.odometerReading,
           filters.mileageFrom,
           filters.mileageTo,
@@ -245,7 +217,7 @@ export const recordFilterService = {
           filters.dateFrom,
           filters.dateTo,
         ) &&
-        matchesMileageRange(
+        matchesNumberRange(
           history.odometerAtService,
           filters.mileageFrom,
           filters.mileageTo,
