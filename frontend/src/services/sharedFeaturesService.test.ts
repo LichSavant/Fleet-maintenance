@@ -247,13 +247,15 @@ describe("shared frontend features", () => {
       "demo-user-manager",
     );
     await fleetDataService.transitionWorkOrder("maintenance-nova-safety", {
-      actorUserId: "demo-user-manager",
+      actorUserId: "fleet-user-mechanic-ana",
       status: "in_progress",
     });
     await fleetDataService.transitionWorkOrder("maintenance-nova-safety", {
-      actorUserId: "demo-user-manager",
+      actorUserId: "fleet-user-mechanic-ana",
+      odometerAtService: 48760,
       serviceNotes: "Inspection completed and verified.",
       status: "completed",
+      totalCost: 950,
     });
     const notifications = fleetDataService.getSnapshot().notifications;
 

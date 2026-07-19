@@ -118,31 +118,37 @@ This checklist is intentionally left unchecked for formal acceptance testing. Th
   - Manual test: Sign in as two different drivers, submit valid readings, try a lower value, old/future date, no active assignment, decimal/non-finite value, and a vehicle edit that lowers the odometer; verify association and history after refresh.
   - Status: Implemented — session-derived ownership, active-assignment/vehicle checks, strict increasing validation, atomic log/vehicle persistence, inline feedback, audit creation, mileage-status recalculation, threshold reminders, history, and administrator/manager report visibility are covered.
 
-- [ ] Maintenance-history recording
-  - Expected behavior: Completing a work order records service type, vehicle, mechanic, completion date, service notes, and odometer-at-service; history remains read-only, linked, searchable, and visible according to role.
-  - Relevant files: `frontend/src/pages/shared/WorkOrdersPage.tsx`, `frontend/src/pages/shared/ServiceHistoryPage.tsx`, `frontend/src/services/fleetDataService.ts`, `frontend/src/services/operationsViewService.ts`, `frontend/src/types/fleet.ts`
-  - Manual test: Complete assigned work with and without required notes/odometer, refresh, search history, inspect links, and compare administrator, manager, mechanic, and driver visibility including a driver's previously assigned vehicle.
-  - Status: Partial — completion now creates linked history with odometer-at-service, but driver history is still restricted to the current vehicle and cost entry is not yet a UI workflow.
+- [x] Maintenance work-order workflow
+  - Expected behavior: Administrators and managers create scheduled work orders and assign active mechanics; assigned mechanics see only their own work, start it, record notes, and complete it; the only valid transitions are scheduled to assigned/cancelled, assigned to in progress/cancelled, and in progress to completed or explicitly confirmed cancellation; final states cannot transition.
+  - Relevant files: `frontend/src/pages/shared/WorkOrdersPage.tsx`, `frontend/src/components/common/WorkOrderFormModal.tsx`, `frontend/src/components/common/AssignMechanicModal.tsx`, `frontend/src/components/common/ServiceNotesModal.tsx`, `frontend/src/services/fleetDataService.ts`, `frontend/src/services/operationsViewService.ts`, `frontend/src/types/operations.ts`
+  - Manual test: Create a scheduled order, assign and reassign it, start as the assigned mechanic, try each invalid transition and a different mechanic, cancel in-progress work with and without confirmation, then complete another order and retry completion.
+  - Status: Implemented — service-layer authorization and transition validation match the visible role actions, in-progress cancellation requires confirmation, final states are immutable, mechanic lists are session-derived, and duplicate completion is rejected.
 
-- [ ] Service-type definitions
+- [x] Maintenance-history recording
+  - Expected behavior: Completing a work order records service type, vehicle, mechanic, completion date, service notes, odometer-at-service, and cost; identity and historical relationships are immutable, while explicit administrator corrections are audited.
+  - Relevant files: `frontend/src/pages/shared/WorkOrdersPage.tsx`, `frontend/src/pages/shared/ServiceHistoryPage.tsx`, `frontend/src/components/common/ServiceNotesModal.tsx`, `frontend/src/components/common/HistoryCorrectionModal.tsx`, `frontend/src/services/fleetDataService.ts`, `frontend/src/services/operationsViewService.ts`, `frontend/src/types/fleet.ts`
+  - Manual test: Complete assigned work with and without valid notes, odometer, and cost; retry completion; refresh and search history; then correct service facts as an administrator and verify identity fields did not change and an audit event was added.
+  - Status: Implemented — completion creates exactly one linked record with entered mileage and cost, raises vehicle mileage when required, preserves identity links, and exposes an administrator-only audited correction flow.
+
+- [x] Service-type definitions
   - Expected behavior: An administrator can create, edit, search, and deactivate a unique service type with a required positive mileage interval; linked historical records remain readable; unauthorized roles cannot mutate it.
   - Relevant files: `frontend/src/pages/shared/ServiceTypesPage.tsx`, `frontend/src/components/common/ServiceTypeFormModal.tsx`, `frontend/src/services/fleetDataService.ts`, `frontend/src/types/fleet.ts`, `frontend/src/types/operations.ts`
   - Manual test: Create/edit/deactivate a service type, test duplicate name and invalid intervals, use it in maintenance, verify linked history after deactivation, and attempt mutations as every role.
-  - Status: Implemented for the definition layer — name, description, positive whole-kilometre interval, status, authorization, and service-type audit events are present; downstream due calculations remain separate unchecked requirements.
+  - Status: Implemented — name, description, positive whole-kilometre interval, active/inactive status, duplicate validation, administrator-only mutation, interval display, audit events, and linked-history preservation are covered.
 
-- [ ] Mileage-based service intervals
+- [x] Mileage-based service intervals
   - Expected behavior: Every interval-based service definition stores a validated distance in the chosen system unit and the value is used consistently by maintenance calculations, forms, reports, and notifications.
   - Relevant files: `frontend/src/types/fleet.ts`, `frontend/src/types/operations.ts`, `frontend/src/components/common/ServiceTypeFormModal.tsx`, `frontend/src/services/fleetDataService.ts`
   - Manual test: Create services with valid, zero, negative, fractional, and missing intervals; reload data and confirm valid intervals drive calculations without a calendar-due dependency.
   - Status: Implemented — validated active service intervals drive the shared calculation used by dashboards, details, reminders, reports, and threshold notifications.
 
-- [ ] Automatic next-service mileage calculation
+- [x] Automatic next-service mileage calculation
   - Expected behavior: For each vehicle/service pair, next service mileage is derived from the latest qualifying completed-service odometer plus the service interval and automatically updates after service completion or a corrected source record.
   - Relevant files: `frontend/src/types/fleet.ts`, `frontend/src/services/fleetDataService.ts`, `frontend/src/services/operationsViewService.ts`, `frontend/src/services/managementViewService.ts`, `frontend/src/services/reportService.ts`
   - Manual test: Complete a service at a known odometer with a known interval, verify the sum everywhere it appears, add later service history, and confirm the latest qualifying record becomes the source without duplicate stored totals.
   - Status: Implemented — `mileageService` uses the official formula, derives null for no history, and all required application views consume the result.
 
-- [ ] Due-soon, due-now, and overdue mileage status calculation
+- [x] Due-soon, due-now, and overdue mileage status calculation
   - Expected behavior: A documented mileage threshold deterministically produces due soon below the target, due now at the target, and overdue above it; status is derived from current odometer and next-service mileage and never becomes stale.
   - Relevant files: `frontend/src/types/fleet.ts`, `frontend/src/services/fleetDataService.ts`, `frontend/src/services/dashboardService.ts`, `frontend/src/services/reportService.ts`, `frontend/src/utils`
   - Manual test: Set readings immediately below the due-soon boundary, at each boundary, at the target, and above the target; refresh and verify badges, dashboards, reports, and notifications all agree.
@@ -152,7 +158,7 @@ This checklist is intentionally left unchecked for formal acceptance testing. Th
   - Expected behavior: Routes, navigation, visible actions, read scopes, and service mutations use one documented permission matrix; direct URL and direct service-call attempts fail for unauthorized roles; current-user data is session-derived.
   - Relevant files: `frontend/src/routes/AppRoutes.tsx`, `frontend/src/routes/ProtectedRoute.tsx`, `frontend/src/routes/RoleRoute.tsx`, `frontend/src/routes/roleNavigation.ts`, `frontend/src/context/AuthContext.tsx`, `frontend/src/services/fleetDataService.ts`
   - Manual test: Use each development account to open every route and exercise every mutation, including calls from developer tools; compare UI controls with service authorization and confirm mechanics/drivers only see their linked records.
-  - Status: Partial — route and current-user behavior are strong, but management services lack actor checks and manager work-order transition permissions differ between UI and service.
+  - Status: Partial — maintenance routes, mechanic scoping, driver read-only views, and work-order service permissions now agree; unrelated management services still lack complete actor checks.
 
 - [ ] Search and filtering
   - Expected behavior: Each directory/log/report that can contain multiple records provides relevant, case-insensitive search and filters, resets pagination safely, and shows an accurate empty state.
@@ -170,7 +176,7 @@ This checklist is intentionally left unchecked for formal acceptance testing. Th
   - Expected behavior: Every create, update, deactivate, assignment, odometer, maintenance, service-type, and relevant account action produces an immutable audit event containing actor, action, entity, and timestamp; authorized users can search/filter the log.
   - Relevant files: `frontend/src/types/fleet.ts`, `frontend/src/services/fleetDataService.ts`, `frontend/src/data/mockFleetData.ts`, `frontend/src/pages/admin/AdminDashboardPage.tsx`
   - Manual test: Perform every mutation once, count and inspect the resulting audit entries, attempt an unauthorized mutation, refresh, and verify missing/failed actions are handled according to policy and prior entries cannot be edited through the UI.
-  - Status: Partial — selected operational and service-type actions are logged with the standardized AuditEvent model, but most management/note/auth events and a dedicated log view are missing.
+  - Status: Partial — work-order creation, assignment, transitions, notes, completion history, explicit history correction, mileage, assignments, schedules, and service-type mutations are audited; some unrelated management/auth events and a dedicated searchable log view remain open.
 
 - [ ] Input validation
   - Expected behavior: Required, format, range, uniqueness, date, transition, mileage, interval, and relationship rules are enforced both in forms and in services with clear errors; impossible dates and non-finite values fail.
@@ -188,7 +194,7 @@ This checklist is intentionally left unchecked for formal acceptance testing. Th
   - Expected behavior: Documented assignment, mileage, maintenance-due, work assignment, completion, cancellation, and status events create one relevant notification for the correct current account; unread count is derived and destinations are authorized real routes.
   - Relevant files: `frontend/src/services/fleetDataService.ts`, `frontend/src/services/sharedViewService.ts`, `frontend/src/pages/shared/NotificationsPage.tsx`, `frontend/src/components/layout/AuthenticatedHeaderActions.tsx`, `frontend/src/types/fleet.ts`
   - Manual test: Trigger every documented event for two drivers and two mechanics, verify recipients/unread counts/destinations, mark one/all read, and confirm no cross-account disclosure or duplicate notice.
-  - Status: Partial — manual mileage threshold crossings now generate account-scoped due-soon/due-now/overdue reminders, but several non-mileage lifecycle events and legacy calendar reminders remain.
+  - Status: Partial — assignment, schedule, work assignment, completion, cancellation, and mileage-threshold events generate account-scoped notifications with authorized destinations; notification coverage for unrelated account-management events remains outside this stage.
 
 ## Required scope limitations
 
@@ -252,4 +258,4 @@ This checklist is intentionally left unchecked for formal acceptance testing. Th
   - Expected behavior: `npm run lint`, `npm run typecheck`, `npm run test`, and `npm run build` all exit successfully, with new mileage-boundary, authorization, audit, and integrity tests included.
   - Relevant files: `frontend/package.json`, all `frontend/src/**/*.test.ts` and `frontend/src/**/*.test.tsx`
   - Manual test: Run all four commands from `frontend/` and compare the test inventory with every requirement above.
-  - Status: Current mileage-service-calculation baseline passes: format passed; lint passed; typecheck passed; 10 test files/75 tests passed; build passed with 121 modules transformed. All five mileage statuses, multiple service types, no-history behavior, mileage-log recalculation, completed-maintenance recalculation, calendar-date independence, schedule migration, relationship integrity, and threshold notifications have automated coverage; broader permission-boundary tests remain for later stages.
+  - Status: Current maintenance-workflow baseline passes: format passed; lint passed; typecheck passed; 10 test files/81 tests passed; build passed with 122 modules transformed. Coverage now includes valid and invalid transitions, assigned-mechanic access, mileage/cost completion validation, history creation, duplicate-completion prevention, in-progress cancellation confirmation, next-service recalculation, vehicle-mileage updates, audit creation, multi-role completion notifications, service-type preservation, and immutable-identity history correction.

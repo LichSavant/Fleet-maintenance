@@ -140,13 +140,15 @@ describe("mileage-based service calculations", () => {
     expect(before?.status).toBe("NO_HISTORY");
 
     await fleetDataService.transitionWorkOrder("maintenance-nova-safety", {
-      actorUserId: "demo-user-manager",
+      actorUserId: "fleet-user-mechanic-ana",
       status: "in_progress",
     });
     await fleetDataService.transitionWorkOrder("maintenance-nova-safety", {
-      actorUserId: "demo-user-manager",
+      actorUserId: "fleet-user-mechanic-ana",
+      odometerAtService: 48760,
       serviceNotes: "Completed the first recorded safety service.",
       status: "completed",
+      totalCost: 1250,
     });
 
     const after = mileageService

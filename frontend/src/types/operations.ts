@@ -46,8 +46,18 @@ export interface WorkOrderInput {
 
 export interface WorkOrderTransitionInput {
   actorUserId: string;
+  confirmCancellation?: boolean;
+  odometerAtService?: number;
   serviceNotes?: string;
   status: WorkOrderStatus;
+  totalCost?: number;
+}
+
+export interface MaintenanceHistoryCorrectionInput {
+  notes: string;
+  odometerAtService: number;
+  serviceDate: string;
+  totalCost: number;
 }
 
 export interface ServiceTypeInput {

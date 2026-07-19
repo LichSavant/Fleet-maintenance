@@ -69,6 +69,13 @@ export default function ServiceTypesPage() {
     },
     {
       align: "right",
+      header: "Interval",
+      key: "interval",
+      render: (serviceType) =>
+        `${serviceType.recommendedIntervalKm.toLocaleString()} km`,
+    },
+    {
+      align: "right",
       header: "Actions",
       key: "actions",
       render: (serviceType) =>

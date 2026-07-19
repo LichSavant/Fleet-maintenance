@@ -22,6 +22,7 @@ import {
 import {
   OperationsError,
   type AssignmentInput,
+  type MaintenanceHistoryCorrectionInput,
   type MaintenanceScheduleInput,
   type ServiceTypeInput,
   type WorkOrderInput,
@@ -476,7 +477,7 @@ const WORK_ORDER_TRANSITIONS: Record<
   assigned: ["in_progress", "cancelled"],
   cancelled: [],
   completed: [],
-  in_progress: ["completed"],
+  in_progress: ["completed", "cancelled"],
   scheduled: ["assigned", "cancelled"],
 };
 
@@ -1020,6 +1021,16 @@ export const fleetDataService = {
       schedule.status = "Converted";
       schedule.workOrderId = workOrder.id;
     }
+    if (assignedMechanicId) {
+      const mechanic = getMechanicProfile(data, assignedMechanicId);
+      addNotification(data, {
+        message: `${serviceType.name} for ${vehicle.fleetNumber} is assigned to you for ${input.scheduledDate}.`,
+        relatedRoute: "/maintenance/work-orders",
+        title: "Work order assigned",
+        type: "Maintenance",
+        userId: mechanic.userId,
+      });
+    }
     logActivity(
       data,
       actorUserId,
@@ -1106,26 +1117,103 @@ export const fleetDataService = {
         );
       }
     }
+    if (
+      actor.role === "manager" &&
+      !(["assigned", "cancelled"] as WorkOrderStatus[]).includes(input.status)
+    ) {
+      throw new OperationsError(
+        "unauthorized",
+        "Managers may assign or cancel work, but only the assigned mechanic or an administrator may perform service work.",
+      );
+    }
     validateWorkOrderTransition(workOrder.status, input.status);
+    if (
+      workOrder.status === "in_progress" &&
+      input.status === "cancelled" &&
+      !input.confirmCancellation
+    ) {
+      throw new OperationsError(
+        "invalid_transition",
+        "Cancelling work in progress requires explicit confirmation.",
+      );
+    }
     if (input.status === "in_progress" && !workOrder.assignedMechanicId) {
       throw new OperationsError(
         "invalid_transition",
         "Assign a mechanic before starting this work order.",
       );
     }
-    if (input.status === "completed" && !isRequired(input.serviceNotes ?? "")) {
-      throw new OperationsError(
-        "invalid_record",
-        "Add service notes before completing this work order.",
-      );
+    if (input.status === "completed") {
+      if (!workOrder.assignedMechanicId) {
+        throw new OperationsError(
+          "invalid_transition",
+          "Assign a mechanic before completing this work order.",
+        );
+      }
+      if (
+        data.maintenanceHistory.some(
+          (record) => record.workOrderId === workOrder.id,
+        )
+      ) {
+        throw new OperationsError(
+          "invalid_transition",
+          "This work order already has a maintenance-history record.",
+        );
+      }
+      if (!isRequired(input.serviceNotes ?? "")) {
+        throw new OperationsError(
+          "invalid_record",
+          "Add service notes before completing this work order.",
+        );
+      }
+      if (
+        !Number.isFinite(input.odometerAtService) ||
+        !Number.isInteger(input.odometerAtService) ||
+        (input.odometerAtService ?? -1) < 0
+      ) {
+        throw new OperationsError(
+          "invalid_record",
+          "Enter a valid whole-number odometer reading.",
+        );
+      }
+      if (!Number.isFinite(input.totalCost) || (input.totalCost ?? -1) < 0) {
+        throw new OperationsError(
+          "invalid_record",
+          "Enter a valid non-negative service cost.",
+        );
+      }
     }
     if (input.serviceNotes !== undefined) {
       workOrder.serviceNotes = input.serviceNotes.trim();
     }
     workOrder.status = input.status;
     const vehicle = getVehicle(data, workOrder.vehicleId);
+    const serviceType = getServiceType(data, workOrder.serviceTypeId);
+    if (
+      input.status === "completed" &&
+      (input.odometerAtService ?? -1) < vehicle.currentMileage
+    ) {
+      throw new OperationsError(
+        "invalid_record",
+        `Service mileage cannot be lower than the vehicle's current ${vehicle.currentMileage.toLocaleString()} km.`,
+      );
+    }
     if (input.status === "in_progress") vehicle.status = "Maintenance";
+    if (input.status === "cancelled" && vehicle.status === "Maintenance") {
+      const hasOtherActiveWork = data.maintenanceWorkOrders.some(
+        (record) =>
+          record.id !== workOrder.id &&
+          record.vehicleId === vehicle.id &&
+          record.status === "in_progress",
+      );
+      if (!hasOtherActiveWork) vehicle.status = "Active";
+    }
     if (input.status === "completed") {
+      const odometerAtService = input.odometerAtService as number;
+      const totalCost = input.totalCost as number;
+      if (odometerAtService > vehicle.currentMileage) {
+        vehicle.currentMileage = odometerAtService;
+      }
       const hasOtherActiveWork = data.maintenanceWorkOrders.some(
         (record) =>
           record.id !== workOrder.id &&
@@ -1144,34 +1232,89 @@ export const fleetDataService = {
             (profile) => profile.id === activeAssignment.driverId,
           )
         : undefined;
-      const serviceType = getServiceType(data, workOrder.serviceTypeId);
-      if (driver) {
+      const history = {
+        id: createId("maintenance-history"),
+        mechanicId: workOrder.assignedMechanicId as string,
+        notes: workOrder.serviceNotes,
+        odometerAtService,
+        serviceDate: today(),
+        serviceTypeId: workOrder.serviceTypeId,
+        totalCost,
+        vehicleId: workOrder.vehicleId,
+        workOrderId: workOrder.id,
+      } satisfies MutableFleetData["maintenanceHistory"][number];
+      data.maintenanceHistory.push(history);
+
+      const recipientIds = new Set<string>();
+      data.users
+        .filter(
+          (user) =>
+            user.status === "Active" &&
+            (user.role === "admin" || user.id === workOrder.requestedByUserId),
+        )
+        .forEach((user) => recipientIds.add(user.id));
+      if (driver) recipientIds.add(driver.userId);
+      const mechanic = getMechanicProfile(
+        data,
+        workOrder.assignedMechanicId as string,
+      );
+      recipientIds.add(mechanic.userId);
+      recipientIds.forEach((userId) => {
+        const recipient = getUser(data, userId);
         addNotification(data, {
-          message: `${serviceType.name} for ${vehicle.fleetNumber} was completed.`,
-          relatedRoute: "/maintenance/history",
+          message: `${serviceType.name} for ${vehicle.fleetNumber} was completed at ${odometerAtService.toLocaleString()} km.`,
+          relatedRoute:
+            recipient.role === "driver"
+              ? "/driver/maintenance"
+              : "/maintenance/history",
           title: "Vehicle maintenance completed",
           type: "Maintenance",
-          userId: driver.userId,
+          userId,
         });
-      }
+      });
+      logActivity(
+        data,
+        input.actorUserId,
+        "Created maintenance history",
+        "maintenance_history",
+        history.id,
+        `${vehicle.fleetNumber} ${serviceType.name} at ${odometerAtService} km`,
+      );
+    } else if (input.status === "cancelled") {
+      const activeAssignment = data.assignments.find(
+        (assignment) =>
+          assignment.vehicleId === vehicle.id && assignment.status === "Active",
+      );
+      const driver = activeAssignment
+        ? data.driverProfiles.find(
+            (profile) => profile.id === activeAssignment.driverId,
+          )
+        : undefined;
+      const recipientIds = new Set<string>([workOrder.requestedByUserId]);
+      data.users
+        .filter((user) => user.status === "Active" && user.role === "admin")
+        .forEach((user) => recipientIds.add(user.id));
       if (workOrder.assignedMechanicId) {
-        const existingHistory = data.maintenanceHistory.find(
-          (record) => record.workOrderId === workOrder.id,
+        const mechanic = data.mechanicProfiles.find(
+          (profile) => profile.id === workOrder.assignedMechanicId,
         );
-        if (!existingHistory) {
-          data.maintenanceHistory.push({
-            id: createId("maintenance-history"),
-            mechanicId: workOrder.assignedMechanicId,
-            notes: workOrder.serviceNotes,
-            odometerAtService: vehicle.currentMileage,
-            serviceDate: today(),
-            serviceTypeId: workOrder.serviceTypeId,
-            totalCost: 0,
-            vehicleId: workOrder.vehicleId,
-            workOrderId: workOrder.id,
-          });
-        }
+        if (mechanic) recipientIds.add(mechanic.userId);
       }
+      if (driver) recipientIds.add(driver.userId);
+      recipientIds.forEach((userId) => {
+        const recipient = data.users.find((user) => user.id === userId);
+        if (!recipient || recipient.status !== "Active") return;
+        addNotification(data, {
+          message: `${serviceType.name} for ${vehicle.fleetNumber} was cancelled.`,
+          relatedRoute:
+            recipient.role === "driver"
+              ? "/driver/maintenance"
+              : "/maintenance/work-orders",
+          title: "Work order cancelled",
+          type: "Maintenance",
+          userId,
+        });
+      });
     }
     logActivity(
       data,
@@ -1194,7 +1337,6 @@ export const fleetDataService = {
     const data = readData();
     const actor = requireOperationsRole(data, actorUserId, [
       "admin",
-      "manager",
       "mechanic",
     ]);
     const workOrder = getWorkOrder(data, workOrderId);
@@ -1209,15 +1351,72 @@ export const fleetDataService = {
         );
       }
     }
-    if (workOrder.status === "cancelled") {
+    if (workOrder.status === "cancelled" || workOrder.status === "completed") {
       throw new OperationsError(
         "invalid_record",
-        "Cancelled work orders cannot be edited.",
+        "Completed or cancelled work orders cannot be edited.",
       );
     }
     workOrder.serviceNotes = serviceNotes.trim();
+    logActivity(
+      data,
+      actorUserId,
+      "Updated work-order service notes",
+      "maintenance_work_order",
+      workOrder.id,
+      workOrder.id,
+    );
     writeData(data);
     return workOrder;
+  },
+
+  async correctMaintenanceHistory(
+    historyId: string,
+    input: MaintenanceHistoryCorrectionInput,
+    actorUserId: string,
+  ) {
+    await delay();
+    const data = readData();
+    requireOperationsRole(data, actorUserId, ["admin"]);
+    const history = data.maintenanceHistory.find(
+      (record) => record.id === historyId,
+    );
+    if (!history) {
+      throw new OperationsError("not_found", "Maintenance history not found.");
+    }
+    if (
+      !isValidDate(input.serviceDate) ||
+      input.serviceDate > today() ||
+      !Number.isInteger(input.odometerAtService) ||
+      input.odometerAtService < 0 ||
+      !Number.isFinite(input.totalCost) ||
+      input.totalCost < 0 ||
+      !isRequired(input.notes)
+    ) {
+      throw new OperationsError(
+        "invalid_record",
+        "Enter a valid past or current service date, whole-number mileage, non-negative cost, and correction notes.",
+      );
+    }
+    const previous = `${history.serviceDate}; ${history.odometerAtService} km; ${history.totalCost}`;
+    history.serviceDate = input.serviceDate;
+    history.odometerAtService = input.odometerAtService;
+    history.totalCost = input.totalCost;
+    history.notes = input.notes.trim();
+    const vehicle = getVehicle(data, history.vehicleId);
+    if (history.odometerAtService > vehicle.currentMileage) {
+      vehicle.currentMileage = history.odometerAtService;
+    }
+    logActivity(
+      data,
+      actorUserId,
+      "Corrected maintenance history",
+      "maintenance_history",
+      history.id,
+      `${previous} -> ${history.serviceDate}; ${history.odometerAtService} km; ${history.totalCost}`,
+    );
+    writeData(data);
+    return history;
   },
 
   async createServiceType(input: ServiceTypeInput, actorUserId: string) {

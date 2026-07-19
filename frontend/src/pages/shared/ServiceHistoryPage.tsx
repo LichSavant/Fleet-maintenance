@@ -1,9 +1,11 @@
 import { useMemo, useState } from "react";
 
 import { ErrorState } from "../../components/common/ErrorState";
+import { HistoryCorrectionModal } from "../../components/common/HistoryCorrectionModal";
 import { ManagementLoadingState } from "../../components/common/ManagementLoadingState";
 import { ManagementPage } from "../../components/common/ManagementPage";
 import { SearchInput } from "../../components/ui/SearchInput";
+import { Button } from "../../components/ui/Button";
 import { Table, type TableColumn } from "../../components/ui/Table";
 import { useAuth } from "../../hooks/useAuth";
 import { useFleetData } from "../../hooks/useFleetData";
@@ -11,12 +13,19 @@ import {
   operationsViewService,
   type ServiceHistoryOperationalView,
 } from "../../services/operationsViewService";
+import { fleetDataService } from "../../services/fleetDataService";
 import { formatDate } from "../../utils/formatDate";
 
 export default function ServiceHistoryPage() {
   const { user } = useAuth();
   const { data, error, isLoading, reload } = useFleetData();
   const [search, setSearch] = useState("");
+  const [correcting, setCorrecting] =
+    useState<ServiceHistoryOperationalView | null>(null);
+  const [feedback, setFeedback] = useState<{
+    message: string;
+    tone: "error" | "success";
+  } | null>(null);
 
   const rows = useMemo(() => {
     if (!data || !user) return [];
@@ -80,6 +89,41 @@ export default function ServiceHistoryPage() {
       key: "notes",
       render: ({ history }) => history.notes || "No service notes",
     },
+    {
+      align: "right",
+      header: "Mileage",
+      key: "mileage",
+      render: ({ history }) =>
+        `${history.odometerAtService.toLocaleString()} km`,
+    },
+    {
+      align: "right",
+      header: "Cost",
+      key: "cost",
+      render: ({ history }) =>
+        new Intl.NumberFormat(undefined, {
+          currency: "PHP",
+          style: "currency",
+        }).format(history.totalCost),
+    },
+    ...(user?.role === "admin"
+      ? [
+          {
+            align: "right" as const,
+            header: "Actions",
+            key: "actions",
+            render: (record: ServiceHistoryOperationalView) => (
+              <Button
+                onClick={() => setCorrecting(record)}
+                size="small"
+                variant="ghost"
+              >
+                Correct
+              </Button>
+            ),
+          },
+        ]
+      : []),
   ];
 
   return (
@@ -94,7 +138,8 @@ export default function ServiceHistoryPage() {
           value={search}
         />
       }
-      description="Completed work orders form one authoritative, read-only service history."
+      description="Completed work orders form one authoritative history. Record identity and relationships remain immutable; administrators may make explicit audited corrections."
+      feedback={feedback}
       title="Service history"
     >
       {isLoading ? (
@@ -113,6 +158,26 @@ export default function ServiceHistoryPage() {
           emptyTitle="No completed service"
           getRowKey={({ history }) => history.id}
           rows={rows}
+        />
+      )}
+      {correcting && user && (
+        <HistoryCorrectionModal
+          history={correcting.history}
+          isOpen
+          onClose={() => setCorrecting(null)}
+          onSubmit={async (input) => {
+            await fleetDataService.correctMaintenanceHistory(
+              correcting.history.id,
+              input,
+              user.id,
+            );
+            setFeedback({
+              message: "Maintenance history corrected with an audit event.",
+              tone: "success",
+            });
+            setCorrecting(null);
+            await reload();
+          }}
         />
       )}
     </ManagementPage>

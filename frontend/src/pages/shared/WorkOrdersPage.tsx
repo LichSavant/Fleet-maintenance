@@ -184,9 +184,10 @@ export default function WorkOrdersPage() {
                 </Button>
               </>
             )}
-          {(record.workOrder.status === "scheduled" ||
-            record.workOrder.status === "assigned") &&
-            canPlan && (
+          {canPlan &&
+            (record.workOrder.status === "scheduled" ||
+              record.workOrder.status === "assigned" ||
+              record.workOrder.status === "in_progress") && (
               <Button
                 onClick={() => setCancelling(record)}
                 size="small"
@@ -206,6 +207,8 @@ export default function WorkOrdersPage() {
     try {
       await fleetDataService.transitionWorkOrder(cancelling.workOrder.id, {
         actorUserId: user.id,
+        confirmCancellation:
+          cancelling.workOrder.status === "in_progress" ? true : undefined,
         status: "cancelled",
       });
       setFeedback({
@@ -332,19 +335,22 @@ export default function WorkOrdersPage() {
       )}
       {notesAction && (
         <ServiceNotesModal
+          currentMileage={notesAction.record.vehicle.currentMileage}
           initialNotes={notesAction.record.workOrder.serviceNotes}
           isOpen
           mode={notesAction.mode}
           onClose={() => setNotesAction(null)}
-          onSubmit={async (notes) => {
+          onSubmit={async ({ notes, odometerAtService, totalCost }) => {
             if (!user) return;
             if (notesAction.mode === "complete") {
               await fleetDataService.transitionWorkOrder(
                 notesAction.record.workOrder.id,
                 {
                   actorUserId: user.id,
+                  odometerAtService,
                   serviceNotes: notes,
                   status: "completed",
+                  totalCost,
                 },
               );
               setFeedback({
@@ -406,7 +412,11 @@ export default function WorkOrdersPage() {
       />
       <ConfirmDialog
         confirmLabel="Cancel work order"
-        description="Cancellation is available only before work begins. The record remains visible for audit history."
+        description={
+          cancelling?.workOrder.status === "in_progress"
+            ? "Work is already in progress. Confirming will cancel it without creating service history; the work order and audit trail remain visible."
+            : "The work order remains visible for audit history after cancellation."
+        }
         isConfirming={isCancelling}
         isOpen={Boolean(cancelling)}
         onCancel={() => setCancelling(null)}
