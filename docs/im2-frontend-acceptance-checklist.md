@@ -2,6 +2,44 @@
 
 This checklist is intentionally left unchecked for formal acceptance testing. The `Status` line records the current audit result, not a completed sign-off. Tests should begin from reset mock data and use the signed-in account named by each item.
 
+## Completed domain-model stabilization
+
+- [x] Canonical typed fleet models
+  - Expected behavior: The active frontend defines one canonical TypeScript model for User, DriverProfile, MechanicProfile, Vehicle, VehicleAssignment, MileageLog, ServiceType, MaintenanceWorkOrder, MaintenanceHistoryRecord, Notification, and AuditEvent with the required relationship fields.
+  - Relevant files: `frontend/src/types/fleet.ts`
+  - Manual test: Run type checking and inspect the exported interfaces and `FleetState` collections for the required fields and names.
+  - Status: Completed — all requested models are canonical members of `FleetState`; legacy domain type names are no longer used by the active application.
+
+- [x] One centralized typed fleet state and persistence boundary
+  - Expected behavior: All fleet records use one versioned `FleetState`; pages/components do not read browser storage; reads and writes pass through `fleetDataService`.
+  - Relevant files: `frontend/src/types/fleet.ts`, `frontend/src/services/fleetDataService.ts`, `frontend/src/hooks/useFleetData.ts`
+  - Manual test: Search pages/components/context/hooks for storage calls, mutate records through the service, refresh, and confirm the v3 state restores.
+  - Status: Completed — the only active fleet persistence boundary is `fleetDataService`; authentication credentials/session remain isolated auth concerns rather than a duplicate fleet-record collection.
+
+- [x] Standardized profile and operational relationships
+  - Expected behavior: Driver/mechanic profiles link to users by `userId`; assignments and mileage logs link by `driverId`; work orders/history link vehicles, service types, mechanics, requesters, and work orders using the standardized IDs.
+  - Relevant files: `frontend/src/types/fleet.ts`, `frontend/src/services/fleetDataService.ts`, `frontend/src/services/managementViewService.ts`, `frontend/src/services/operationsViewService.ts`, `frontend/src/services/sharedViewService.ts`
+  - Manual test: Resolve each development user's profile from session user ID, then trace its assignments, mileage, work, history, and notifications without using a fixed current-record ID.
+  - Status: Completed — relationships are ID-based and current-user views resolve from the authenticated session user ID.
+
+- [x] Separate work-order and maintenance-history records
+  - Expected behavior: Work orders represent workflow state; a completed service creates one linked MaintenanceHistoryRecord containing service date, mechanic, odometer-at-service, cost placeholder, and notes; history is not a second copied work-order collection.
+  - Relevant files: `frontend/src/types/fleet.ts`, `frontend/src/services/fleetDataService.ts`, `frontend/src/services/operationsViewService.ts`, `frontend/src/pages/shared/ServiceHistoryPage.tsx`
+  - Manual test: Complete a work order, confirm exactly one history record references its `workOrderId`, repeat/reload, and verify the recorded odometer equals the vehicle odometer at completion.
+  - Status: Completed for the data model and service boundary.
+
+- [x] Versioned migration and malformed-state recovery
+  - Expected behavior: Valid v2 browser data migrates once to v3, usable records and relationships are retained, the legacy key is removed after success, and malformed or orphaned persisted data fails closed to seeded canonical data.
+  - Relevant files: `frontend/src/services/fleetStateMigration.ts`, `frontend/src/services/fleetDataService.ts`, `frontend/src/services/fleetDataService.test.ts`
+  - Manual test: Seed valid v2 data and inspect v3 output; then seed a v3 assignment with a missing driver relationship and confirm the invalid state is removed and seeded records load.
+  - Status: Completed — deep collection/field/foreign-key checks and both migration/recovery tests are present.
+
+- [x] Relationship-resolution and migration tests
+  - Expected behavior: Tests verify linked user/profile creation, session-user dashboard resolution, migrated field/relationship mapping, malformed foreign-key recovery, and work-order-to-history linkage.
+  - Relevant files: `frontend/src/services/fleetDataService.test.ts`, `frontend/src/services/dashboardService.test.ts`, `frontend/src/services/fleetOperationsService.test.ts`, `frontend/src/routes/AppRoutes.test.tsx`
+  - Manual test: Run `npm run test` and inspect the named tests for assertions against standardized relationship fields rather than hardcoded current-user assumptions.
+  - Status: Completed — the suite now contains 55 passing tests across 9 files.
+
 ## Required capabilities
 
 - [ ] Vehicle inventory management
@@ -26,19 +64,19 @@ This checklist is intentionally left unchecked for formal acceptance testing. Th
   - Expected behavior: The signed-in driver submits a manual reading for the currently assigned vehicle; the entry records driver, vehicle, date, notes, and reading; lower/out-of-order readings fail; no alternate edit path can invalidate the log.
   - Relevant files: `frontend/src/pages/driver/DriverMileagePage.tsx`, `frontend/src/services/fleetDataService.ts`, `frontend/src/services/sharedViewService.ts`, `frontend/src/types/fleet.ts`, `frontend/src/types/shared.ts`
   - Manual test: Sign in as two different drivers, submit valid readings, try a lower value, old/future date, no active assignment, decimal/non-finite value, and a vehicle edit that lowers the odometer; verify association and history after refresh.
-  - Status: Partial — current-user submission is correct, but vehicle editing can bypass/lower the duplicate odometer state and integer validation is absent.
+  - Status: Partial — current-user submission and whole-number validation are correct, but vehicle editing can still bypass or lower odometer history.
 
 - [ ] Maintenance-history recording
   - Expected behavior: Completing a work order records service type, vehicle, mechanic, completion date, service notes, and odometer-at-service; history remains read-only, linked, searchable, and visible according to role.
   - Relevant files: `frontend/src/pages/shared/WorkOrdersPage.tsx`, `frontend/src/pages/shared/ServiceHistoryPage.tsx`, `frontend/src/services/fleetDataService.ts`, `frontend/src/services/operationsViewService.ts`, `frontend/src/types/fleet.ts`
   - Manual test: Complete assigned work with and without required notes/odometer, refresh, search history, inspect links, and compare administrator, manager, mechanic, and driver visibility including a driver's previously assigned vehicle.
-  - Status: Partial — service completion/history work, but odometer-at-service is absent and driver history is restricted to the current vehicle.
+  - Status: Partial — completion now creates linked history with odometer-at-service, but driver history is still restricted to the current vehicle and cost entry is not yet a UI workflow.
 
 - [ ] Service-type definitions
   - Expected behavior: An administrator can create, edit, search, and deactivate a unique service type with a required positive mileage interval; linked historical records remain readable; unauthorized roles cannot mutate it.
   - Relevant files: `frontend/src/pages/shared/ServiceTypesPage.tsx`, `frontend/src/components/common/ServiceTypeFormModal.tsx`, `frontend/src/services/fleetDataService.ts`, `frontend/src/types/fleet.ts`, `frontend/src/types/operations.ts`
   - Manual test: Create/edit/deactivate a service type, test duplicate name and invalid intervals, use it in maintenance, verify linked history after deactivation, and attempt mutations as every role.
-  - Status: Partial — name/description CRUD exists, but mileage intervals and audit events do not.
+  - Status: Implemented for the definition layer — name, description, positive whole-kilometre interval, status, authorization, and service-type audit events are present; downstream due calculations remain separate unchecked requirements.
 
 - [ ] Mileage-based service intervals
   - Expected behavior: Every interval-based service definition stores a validated distance in the chosen system unit and the value is used consistently by maintenance calculations, forms, reports, and notifications.
@@ -80,19 +118,19 @@ This checklist is intentionally left unchecked for formal acceptance testing. Th
   - Expected behavior: Every create, update, deactivate, assignment, odometer, maintenance, service-type, and relevant account action produces an immutable audit event containing actor, action, entity, and timestamp; authorized users can search/filter the log.
   - Relevant files: `frontend/src/types/fleet.ts`, `frontend/src/services/fleetDataService.ts`, `frontend/src/data/mockFleetData.ts`, `frontend/src/pages/admin/AdminDashboardPage.tsx`
   - Manual test: Perform every mutation once, count and inspect the resulting audit entries, attempt an unauthorized mutation, refresh, and verify missing/failed actions are handled according to policy and prior entries cannot be edited through the UI.
-  - Status: Partial — selected operational actions are logged, but most management/service-type/note/auth events and a dedicated log view are missing.
+  - Status: Partial — selected operational and service-type actions are logged with the standardized AuditEvent model, but most management/note/auth events and a dedicated log view are missing.
 
 - [ ] Input validation
   - Expected behavior: Required, format, range, uniqueness, date, transition, mileage, interval, and relationship rules are enforced both in forms and in services with clear errors; impossible dates and non-finite values fail.
   - Relevant files: `frontend/src/utils/validation.ts`, `frontend/src/services/fleetDataService.ts`, `frontend/src/services/authService.ts`, `frontend/src/components/common`, `frontend/src/pages/auth`, `frontend/src/pages/driver/DriverMileagePage.tsx`
   - Manual test: Submit empty, whitespace-only, malformed, duplicate, boundary, impossible-date, `NaN`/infinite, negative, stale, and unauthorized values through UI and direct service calls; verify no partial write occurs.
-  - Status: Partial — many rules are enforced, but impossible dates, non-finite vehicle values, odometer edit consistency, text limits, and all mileage-interval rules remain open.
+  - Status: Partial — finite vehicle mileage and positive whole-kilometre service intervals are now validated, but impossible dates, odometer edit consistency, and text limits remain open.
 
 - [ ] Relationship and referential-integrity protection
   - Expected behavior: All foreign IDs resolve; user/profile creation is atomic; active and historical dependencies prevent destructive deletion; storage restoration rejects or safely repairs malformed/orphaned records; auth and fleet identities cannot drift.
   - Relevant files: `frontend/src/services/fleetDataService.ts`, `frontend/src/services/authService.ts`, `frontend/src/context/AuthContext.tsx`, `frontend/src/types/fleet.ts`, `frontend/src/services/managementViewService.ts`, `frontend/src/services/operationsViewService.ts`
   - Manual test: Attempt each deactivation with active/historical links, tamper stored foreign keys and record shapes, simulate storage-write failure, update identity fields, refresh/sign out/sign in, and confirm records remain linked or fail closed.
-  - Status: Partial — normal UI relationships are protected and history is preserved, but storage validation is shallow and auth/fleet plus vehicle/mileage state can diverge.
+  - Status: Partial — persisted fleet fields and foreign keys now fail closed through deep v3 validation, but auth/fleet identity synchronization and vehicle/mileage snapshot consistency can still diverge.
 
 - [ ] Notifications generated by meaningful fleet events
   - Expected behavior: Documented assignment, mileage, maintenance-due, work assignment, completion, cancellation, and status events create one relevant notification for the correct current account; unread count is derived and destinations are authorized real routes.
@@ -124,13 +162,13 @@ This checklist is intentionally left unchecked for formal acceptance testing. Th
   - Expected behavior: No telematics connection, sensor feed, remote odometer, or diagnostic ingestion exists, and user-facing fixtures do not imply one.
   - Relevant files: `frontend/src/data/mockFleetData.ts`, `frontend/src/types/fleet.ts`, `frontend/src/services`
   - Manual test: Inspect data entry and network/storage behavior and search all visible copy for telematics claims.
-  - Status: Partial — no telematics functionality exists, but a seeded service description explicitly mentions telematics sensors.
+  - Status: Met — no telematics functionality exists and the conflicting seeded wording was removed during mock-data migration.
 
 - [ ] No parts inventory
   - Expected behavior: No part, stock, request, reorder, or inventory workflow is presented as part of the system.
   - Relevant files: `frontend/src/data/mockFleetData.ts`, `frontend/src/pages`, `frontend/src/services`
   - Manual test: Inspect navigation, pages, forms, notifications, data types, and reports for parts workflows.
-  - Status: Partial — no module exists, but a seeded notification says a parts request was updated.
+  - Status: Met — no parts module exists and the conflicting seeded notification was replaced with a work-order update.
 
 - [ ] No payment processing
   - Expected behavior: No payment, invoice settlement, card, wallet, or payment-provider integration exists.
@@ -148,7 +186,7 @@ This checklist is intentionally left unchecked for formal acceptance testing. Th
   - Expected behavior: No AI/ML model, prediction, generated diagnosis, or unexplained predictive maintenance claim exists.
   - Relevant files: `frontend/src/types/fleet.ts`, `frontend/src/data/mockFleetData.ts`, `frontend/src/pages`, `frontend/package.json`
   - Manual test: Inspect dependencies, network calls, calculations, vehicle health display, and visible claims for predictive behavior.
-  - Status: Partial — no AI exists, but the seeded `health` score is unexplained and should not be represented as predictive output.
+  - Status: Met — no AI exists and the unexplained vehicle-health field was removed from the canonical model and current vehicle view.
 
 - [ ] No automatic calendar-based service reminders
   - Expected behavior: No timer or date threshold automatically generates service-due status or reminders; preventive reminders derive from mileage events and mileage thresholds.
@@ -162,4 +200,4 @@ This checklist is intentionally left unchecked for formal acceptance testing. Th
   - Expected behavior: `npm run lint`, `npm run typecheck`, `npm run test`, and `npm run build` all exit successfully, with new mileage-boundary, authorization, audit, and integrity tests included.
   - Relevant files: `frontend/package.json`, all `frontend/src/**/*.test.ts` and `frontend/src/**/*.test.tsx`
   - Manual test: Run all four commands from `frontend/` and compare the test inventory with every requirement above.
-  - Status: Current baseline passes: lint passed; typecheck passed; 9 test files/53 tests passed; build passed with 118 modules transformed. Required IM2 gap tests do not yet exist.
+  - Status: Current domain-model baseline passes: format passed; lint passed; typecheck passed; 9 test files/55 tests passed; build passed with 119 modules transformed. Migration, malformed-state recovery, current-user relationship resolution, and work-order-to-history linkage now have automated coverage; broader mileage-due and permission-boundary tests remain for later implementation stages.

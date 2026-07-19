@@ -1,16 +1,16 @@
 import { useState, type FormEvent } from "react";
 
-import type { FleetDataSource } from "../../types/fleet";
+import type { FleetState } from "../../types/fleet";
 import { Button } from "../ui/Button";
 import { FormField } from "../ui/FormField";
 import { Modal } from "../ui/Modal";
 import { Select } from "../ui/Select";
 
 interface AssignMechanicModalProps {
-  data: FleetDataSource;
+  data: FleetState;
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (mechanicProfileId: string) => Promise<void>;
+  onSubmit: (assignedMechanicId: string) => Promise<void>;
 }
 
 export function AssignMechanicModal({
@@ -19,7 +19,7 @@ export function AssignMechanicModal({
   onClose,
   onSubmit,
 }: AssignMechanicModalProps) {
-  const [mechanicProfileId, setMechanicProfileId] = useState("");
+  const [assignedMechanicId, setAssignedMechanicId] = useState("");
   const [error, setError] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const mechanics = data.mechanicProfiles.flatMap((profile) => {
@@ -31,14 +31,14 @@ export function AssignMechanicModal({
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!mechanicProfileId) {
+    if (!assignedMechanicId) {
       setError("Select an active mechanic.");
       return;
     }
     setIsSaving(true);
     setError("");
     try {
-      await onSubmit(mechanicProfileId);
+      await onSubmit(assignedMechanicId);
     } catch (submitError) {
       setError(
         submitError instanceof Error
@@ -80,13 +80,13 @@ export function AssignMechanicModal({
       >
         <FormField id="assigned-mechanic" label="Mechanic" required>
           <Select
-            onChange={(event) => setMechanicProfileId(event.target.value)}
-            value={mechanicProfileId}
+            onChange={(event) => setAssignedMechanicId(event.target.value)}
+            value={assignedMechanicId}
           >
             <option value="">Select a mechanic</option>
             {mechanics.map(({ profile, user }) => (
               <option key={profile.id} value={profile.id}>
-                {user.fullName} · {profile.specialty}
+                {user.fullName} · {profile.specialization}
               </option>
             ))}
           </Select>

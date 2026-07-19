@@ -28,7 +28,7 @@ export interface RegistrationInput {
   licenseNumber?: string;
   password: string;
   role: UserRole;
-  specialty?: string;
+  specialization?: string;
 }
 
 export interface StoredAuthAccount extends AuthUser {

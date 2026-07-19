@@ -1,16 +1,12 @@
 import { MOCK_FLEET_DATA } from "../data/mockFleetData";
 import type { AuthUser } from "../types/auth";
 import type {
-  DriverProfile,
-  FleetDataSource,
-  FleetNotification,
-  FleetUserRecord,
-  ManagerProfile,
-  MaintenanceRecord,
+  AuditEntityType,
+  FleetState,
   MaintenanceSchedule,
-  MechanicProfile,
-  MileageSubmission,
+  Notification,
   ServiceType,
+  User,
   Vehicle,
   VehicleAssignment,
   WorkOrderStatus,
@@ -37,43 +33,22 @@ import {
   type ProfileUpdateInput,
 } from "../types/shared";
 import { isRequired, isValidEmail } from "../utils/validation";
+import {
+  createStoredFleetState,
+  FLEET_STATE_VERSION,
+  readStoredFleetState,
+} from "./fleetStateMigration";
 
-const STORAGE_KEY = "forgefleet.frontend.fleet-data.v2";
-const STORAGE_VERSION = 2;
+const STORAGE_KEY = "forgefleet.frontend.fleet-data.v3";
+const LEGACY_STORAGE_KEY = "forgefleet.frontend.fleet-data.v2";
 const DEMO_DELAY_MS = 120;
 const DATA_CHANGED_EVENT = "forgefleet:data-changed";
 
-interface MutableFleetData {
-  assignments: FleetDataSource["assignments"] extends readonly (infer T)[]
-    ? T[]
-    : never;
-  driverProfiles: DriverProfile[];
-  maintenanceRecords: FleetDataSource["maintenanceRecords"] extends readonly (infer T)[]
-    ? T[]
-    : never;
-  maintenanceSchedules: FleetDataSource["maintenanceSchedules"] extends readonly (infer T)[]
-    ? T[]
-    : never;
-  managerProfiles: ManagerProfile[];
-  mechanicProfiles: MechanicProfile[];
-  mileageSubmissions: FleetDataSource["mileageSubmissions"] extends readonly (infer T)[]
-    ? T[]
-    : never;
-  notifications: FleetDataSource["notifications"] extends readonly (infer T)[]
-    ? T[]
-    : never;
-  serviceTypes: ServiceType[];
-  systemActivity: FleetDataSource["systemActivity"] extends readonly (infer T)[]
-    ? T[]
-    : never;
-  users: FleetUserRecord[];
-  vehicles: Vehicle[];
-}
-
-interface StoredFleetData {
-  data: MutableFleetData;
-  version: 2;
-}
+type MutableFleetData = {
+  -readonly [
+    Key in keyof FleetState
+  ]: FleetState[Key] extends readonly (infer Item)[] ? Item[] : never;
+};
 
 function delay() {
   return new Promise<void>((resolve) =>
@@ -81,49 +56,52 @@ function delay() {
   );
 }
 
-function cloneData(data: FleetDataSource): MutableFleetData {
+function cloneData(data: FleetState): MutableFleetData {
   return JSON.parse(JSON.stringify(data)) as MutableFleetData;
 }
 
-function isStoredFleetData(value: unknown): value is StoredFleetData {
-  if (!value || typeof value !== "object") return false;
-  const record = value as Partial<StoredFleetData>;
-  const data = record.data as Partial<MutableFleetData> | undefined;
-  return (
-    record.version === STORAGE_VERSION &&
-    Boolean(data) &&
-    Array.isArray(data?.users) &&
-    Array.isArray(data?.driverProfiles) &&
-    Array.isArray(data?.mechanicProfiles) &&
-    Array.isArray(data?.managerProfiles) &&
-    Array.isArray(data?.vehicles) &&
-    Array.isArray(data?.assignments) &&
-    Array.isArray(data?.maintenanceRecords) &&
-    Array.isArray(data?.maintenanceSchedules) &&
-    Array.isArray(data?.mileageSubmissions) &&
-    Array.isArray(data?.notifications) &&
-    Array.isArray(data?.serviceTypes) &&
-    Array.isArray(data?.systemActivity)
-  );
+function removeStoredValue(key: string) {
+  try {
+    window.localStorage.removeItem(key);
+  } catch {
+    // Reads fail closed to the seeded state when storage is unavailable.
+  }
 }
 
 function readData(): MutableFleetData {
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (!raw) return cloneData(MOCK_FLEET_DATA);
-    const parsed: unknown = JSON.parse(raw);
-    if (isStoredFleetData(parsed)) return cloneData(parsed.data);
-    window.localStorage.removeItem(STORAGE_KEY);
-    return cloneData(MOCK_FLEET_DATA);
+    if (raw) {
+      const current = readStoredFleetState(JSON.parse(raw) as unknown);
+      if (current) return cloneData(current);
+      removeStoredValue(STORAGE_KEY);
+    }
+
+    const legacyRaw = window.localStorage.getItem(LEGACY_STORAGE_KEY);
+    if (legacyRaw) {
+      const migrated = readStoredFleetState(JSON.parse(legacyRaw) as unknown);
+      if (migrated) {
+        window.localStorage.setItem(
+          STORAGE_KEY,
+          JSON.stringify(createStoredFleetState(migrated)),
+        );
+        removeStoredValue(LEGACY_STORAGE_KEY);
+        return cloneData(migrated);
+      }
+      removeStoredValue(LEGACY_STORAGE_KEY);
+    }
   } catch {
-    return cloneData(MOCK_FLEET_DATA);
+    removeStoredValue(STORAGE_KEY);
   }
+  return cloneData(MOCK_FLEET_DATA);
 }
 
 function writeData(data: MutableFleetData) {
   try {
-    const stored: StoredFleetData = { data, version: STORAGE_VERSION };
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(stored));
+    window.localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify(createStoredFleetState(data)),
+    );
     window.dispatchEvent(new CustomEvent(DATA_CHANGED_EVENT));
   } catch {
     throw new ManagementError(
@@ -132,6 +110,12 @@ function writeData(data: MutableFleetData) {
     );
   }
 }
+
+export const FLEET_STORAGE_KEYS = {
+  current: STORAGE_KEY,
+  legacy: LEGACY_STORAGE_KEY,
+  version: FLEET_STATE_VERSION,
+} as const;
 
 function createId(prefix: string) {
   const value = window.crypto?.randomUUID?.() ?? Date.now().toString(36);
@@ -194,27 +178,35 @@ function ensureUniqueLicense(
 
 function addRoleProfile(
   data: MutableFleetData,
-  user: FleetUserRecord,
+  user: User,
   input: UserAccountInput,
 ) {
   if (user.role === "driver") {
     ensureUniqueLicense(data, input.licenseNumber ?? "");
     data.driverProfiles.push({
+      employeeNumber:
+        input.employeeNumber?.trim() ??
+        `DRV-${user.id.slice(-8).toUpperCase()}`,
       id: createId("driver-profile"),
       licenseNumber: input.licenseNumber?.trim() ?? "",
+      phone: input.phone?.trim() ?? "",
       status: "Available",
       userId: user.id,
     });
   } else if (user.role === "mechanic") {
-    if (!isRequired(input.specialty ?? "")) {
+    if (!isRequired(input.specialization ?? "")) {
       throw new ManagementError(
         "invalid_record",
-        "Enter a mechanic specialty.",
+        "Enter a mechanic specialization.",
       );
     }
     data.mechanicProfiles.push({
+      employeeNumber:
+        input.employeeNumber?.trim() ??
+        `MEC-${user.id.slice(-8).toUpperCase()}`,
       id: createId("mechanic-profile"),
-      specialty: input.specialty?.trim() ?? "",
+      phone: input.phone?.trim() ?? "",
+      specialization: input.specialization?.trim() ?? "",
       status: "Active",
       userId: user.id,
     });
@@ -243,13 +235,15 @@ function validateVehicle(
 ) {
   if (
     !isRequired(input.fleetNumber) ||
-    !isRequired(input.plate) ||
-    !isRequired(input.manufacturer) ||
+    !isRequired(input.plateNumber) ||
+    !isRequired(input.vin) ||
+    !isRequired(input.make) ||
     !isRequired(input.model) ||
     !isRequired(input.type) ||
     input.year < 1980 ||
     input.year > new Date().getFullYear() + 1 ||
-    input.mileage < 0
+    !Number.isFinite(input.currentMileage) ||
+    input.currentMileage < 0
   ) {
     throw new ManagementError(
       "invalid_record",
@@ -272,12 +266,24 @@ function validateVehicle(
     data.vehicles.some(
       (vehicle) =>
         vehicle.id !== excludedVehicleId &&
-        normalize(vehicle.plate) === normalize(input.plate),
+        normalize(vehicle.plateNumber) === normalize(input.plateNumber),
     )
   ) {
     throw new ManagementError(
       "duplicate_plate",
       "That plate number is already in use.",
+    );
+  }
+  if (
+    data.vehicles.some(
+      (vehicle) =>
+        vehicle.id !== excludedVehicleId &&
+        normalize(vehicle.vin) === normalize(input.vin),
+    )
+  ) {
+    throw new ManagementError(
+      "duplicate_plate",
+      "That vehicle identification number is already in use.",
     );
   }
 }
@@ -298,7 +304,7 @@ function ensureVehicleCanBeDeactivated(
     );
   }
   if (
-    data.maintenanceRecords.some(
+    data.maintenanceWorkOrders.some(
       (record) =>
         record.vehicleId === vehicleId &&
         record.status !== "completed" &&
@@ -323,7 +329,7 @@ function isValidDate(value: string) {
 function requireOperationsRole(
   data: MutableFleetData,
   actorUserId: string,
-  roles: FleetUserRecord["role"][],
+  roles: User["role"][],
 ) {
   const actor = getUser(data, actorUserId);
   if (actor.status !== "Active" || !roles.includes(actor.role)) {
@@ -371,7 +377,7 @@ function getServiceType(data: MutableFleetData, serviceTypeId: string) {
 }
 
 function getWorkOrder(data: MutableFleetData, workOrderId: string) {
-  const workOrder = data.maintenanceRecords.find(
+  const workOrder = data.maintenanceWorkOrders.find(
     (item) => item.id === workOrderId,
   );
   if (!workOrder) {
@@ -384,43 +390,43 @@ function logActivity(
   data: MutableFleetData,
   actorUserId: string,
   action: string,
-  entityLabel: string,
+  entityType: AuditEntityType,
+  entityId: string,
+  description: string,
 ) {
-  data.systemActivity.unshift({
+  const actor = getUser(data, actorUserId);
+  data.auditEvents.unshift({
     action,
-    entityLabel,
+    createdAt: new Date().toISOString(),
+    description,
+    entityId,
+    entityType,
     id: createId("activity"),
-    occurredAt: new Date().toISOString(),
+    role: actor.role,
     userId: actorUserId,
   });
 }
 
 function addNotification(
   data: MutableFleetData,
-  notification: Omit<FleetNotification, "createdAt" | "id" | "read">,
+  notification: Omit<Notification, "createdAt" | "id" | "readAt">,
 ) {
   data.notifications.unshift({
     ...notification,
     createdAt: new Date().toISOString(),
     id: createId("notification"),
-    read: false,
+    readAt: null,
   });
 }
 
-function notificationBelongsToUser(
-  notification: FleetNotification,
-  user: FleetUserRecord,
-) {
-  return (
-    notification.userId === user.id ||
-    (!notification.userId && notification.role === user.role)
-  );
+function notificationBelongsToUser(notification: Notification, user: User) {
+  return notification.userId === user.id;
 }
 
 function requireSharedRole(
   data: MutableFleetData,
   actorUserId: string,
-  roles: FleetUserRecord["role"][],
+  roles: User["role"][],
 ) {
   const actor = getUser(data, actorUserId);
   if (actor.status !== "Active" || !roles.includes(actor.role)) {
@@ -441,7 +447,7 @@ function getActiveDriverAssignment(data: MutableFleetData, userId: string) {
     );
   }
   const assignment = data.assignments.find(
-    (item) => item.driverProfileId === profile.id && item.status === "Active",
+    (item) => item.driverId === profile.id && item.status === "Active",
   );
   if (!assignment) {
     throw new SharedFeatureError(
@@ -476,11 +482,11 @@ function validateWorkOrderTransition(
 }
 
 export const fleetDataService = {
-  getSnapshot(): FleetDataSource {
+  getSnapshot(): FleetState {
     return readData();
   },
 
-  async load(): Promise<FleetDataSource> {
+  async load(): Promise<FleetState> {
     await delay();
     return readData();
   },
@@ -490,7 +496,7 @@ export const fleetDataService = {
     const data = readData();
     validatePerson(input.fullName, input.email);
     ensureUniqueEmail(data, input.email);
-    const user: FleetUserRecord = {
+    const user: User = {
       email: normalize(input.email),
       fullName: input.fullName.trim(),
       id: createId("fleet-user"),
@@ -505,7 +511,7 @@ export const fleetDataService = {
 
   async registerSelfServiceAccount(
     authUser: AuthUser,
-    input: Pick<UserAccountInput, "licenseNumber" | "specialty">,
+    input: Pick<UserAccountInput, "licenseNumber" | "specialization">,
   ) {
     await delay();
     if (authUser.role !== "driver" && authUser.role !== "mechanic") {
@@ -523,7 +529,7 @@ export const fleetDataService = {
         "That account is already linked to fleet records.",
       );
     }
-    const user: FleetUserRecord = {
+    const user: User = {
       ...authUser,
       status: "Active",
     };
@@ -550,19 +556,25 @@ export const fleetDataService = {
     const driver = data.driverProfiles.find((item) => item.userId === userId);
     if (driver) {
       ensureUniqueLicense(data, input.licenseNumber ?? "", driver.id);
+      driver.employeeNumber =
+        input.employeeNumber?.trim() ?? driver.employeeNumber;
       driver.licenseNumber = input.licenseNumber?.trim() ?? "";
+      driver.phone = input.phone?.trim() ?? driver.phone;
     }
     const mechanic = data.mechanicProfiles.find(
       (item) => item.userId === userId,
     );
     if (mechanic) {
-      if (!isRequired(input.specialty ?? "")) {
+      if (!isRequired(input.specialization ?? "")) {
         throw new ManagementError(
           "invalid_record",
-          "Enter a mechanic specialty.",
+          "Enter a mechanic specialization.",
         );
       }
-      mechanic.specialty = input.specialty?.trim() ?? "";
+      mechanic.employeeNumber =
+        input.employeeNumber?.trim() ?? mechanic.employeeNumber;
+      mechanic.phone = input.phone?.trim() ?? mechanic.phone;
+      mechanic.specialization = input.specialization?.trim() ?? "";
     }
     const manager = data.managerProfiles.find((item) => item.userId === userId);
     if (manager) {
@@ -598,8 +610,7 @@ export const fleetDataService = {
       driver &&
       data.assignments.some(
         (assignment) =>
-          assignment.driverProfileId === driver.id &&
-          assignment.status === "Active",
+          assignment.driverId === driver.id && assignment.status === "Active",
       )
     ) {
       throw new ManagementError(
@@ -612,9 +623,9 @@ export const fleetDataService = {
     );
     if (
       mechanic &&
-      data.maintenanceRecords.some(
+      data.maintenanceWorkOrders.some(
         (record) =>
-          record.mechanicProfileId === mechanic.id &&
+          record.assignedMechanicId === mechanic.id &&
           record.status !== "completed" &&
           record.status !== "cancelled",
       )
@@ -654,13 +665,14 @@ export const fleetDataService = {
     validateVehicle(input, data);
     const vehicle: Vehicle = {
       ...input,
+      currentMileage: input.currentMileage,
       fleetNumber: input.fleetNumber.trim().toUpperCase(),
-      health: 100,
       id: createId("vehicle"),
-      manufacturer: input.manufacturer.trim(),
+      make: input.make.trim(),
       model: input.model.trim(),
-      plate: input.plate.trim().toUpperCase(),
+      plateNumber: input.plateNumber.trim().toUpperCase(),
       type: input.type.trim(),
+      vin: input.vin.trim().toUpperCase(),
     };
     data.vehicles.push(vehicle);
     writeData(data);
@@ -681,11 +693,13 @@ export const fleetDataService = {
     }
     Object.assign(vehicle, {
       ...input,
+      currentMileage: input.currentMileage,
       fleetNumber: input.fleetNumber.trim().toUpperCase(),
-      manufacturer: input.manufacturer.trim(),
+      make: input.make.trim(),
       model: input.model.trim(),
-      plate: input.plate.trim().toUpperCase(),
+      plateNumber: input.plateNumber.trim().toUpperCase(),
       type: input.type.trim(),
+      vin: input.vin.trim().toUpperCase(),
     });
     writeData(data);
     return vehicle;
@@ -713,7 +727,7 @@ export const fleetDataService = {
       );
     }
 
-    const driver = getDriverProfile(data, input.driverProfileId);
+    const driver = getDriverProfile(data, input.driverId);
     const driverUser = getUser(data, driver.userId);
     if (driver.status !== "Available" || driverUser.status !== "Active") {
       throw new OperationsError(
@@ -732,7 +746,7 @@ export const fleetDataService = {
       data.assignments.some(
         (assignment) =>
           assignment.status === "Active" &&
-          (assignment.driverProfileId === driver.id ||
+          (assignment.driverId === driver.id ||
             assignment.vehicleId === vehicle.id),
       )
     ) {
@@ -743,7 +757,7 @@ export const fleetDataService = {
     }
 
     const assignment: VehicleAssignment = {
-      driverProfileId: driver.id,
+      driverId: driver.id,
       endDate: null,
       id: createId("assignment"),
       startDate: input.startDate,
@@ -753,9 +767,8 @@ export const fleetDataService = {
     data.assignments.push(assignment);
     driver.status = "Assigned";
     addNotification(data, {
-      destination: "/driver/dashboard",
-      message: `${vehicle.fleetNumber} (${vehicle.plate}) is now assigned to you.`,
-      role: "driver",
+      message: `${vehicle.fleetNumber} (${vehicle.plateNumber}) is now assigned to you.`,
+      relatedRoute: "/driver/dashboard",
       title: "New vehicle assignment",
       type: "Assignment",
       userId: driverUser.id,
@@ -764,6 +777,8 @@ export const fleetDataService = {
       data,
       actorUserId,
       "Created vehicle assignment",
+      "assignment",
+      assignment.id,
       `${vehicle.fleetNumber} to ${driverUser.fullName}`,
     );
     writeData(data);
@@ -802,13 +817,15 @@ export const fleetDataService = {
     }
     assignment.endDate = endDate;
     assignment.status = "Ended";
-    const driver = getDriverProfile(data, assignment.driverProfileId);
+    const driver = getDriverProfile(data, assignment.driverId);
     if (driver.status !== "Inactive") driver.status = "Available";
     const vehicle = getVehicle(data, assignment.vehicleId);
     logActivity(
       data,
       actorUserId,
       "Ended vehicle assignment",
+      "assignment",
+      assignment.id,
       vehicle.fleetNumber,
     );
     writeData(data);
@@ -830,21 +847,21 @@ export const fleetDataService = {
     }
     const vehicle = getVehicle(data, input.vehicleId);
     const serviceType = getServiceType(data, input.serviceTypeId);
-    if (!serviceType.active) {
+    if (serviceType.status !== "Active") {
       throw new OperationsError(
         "invalid_record",
         "Select an active service type.",
       );
     }
-    const mechanicProfileId = input.mechanicProfileId || null;
-    if (mechanicProfileId) getMechanicProfile(data, mechanicProfileId);
+    const assignedMechanicId = input.assignedMechanicId || null;
+    if (assignedMechanicId) getMechanicProfile(data, assignedMechanicId);
     const schedule: MaintenanceSchedule = {
       createdAt: new Date().toISOString(),
-      createdByUserId: actorUserId,
+      assignedMechanicId,
       dueDate: input.dueDate,
       id: createId("schedule"),
-      mechanicProfileId,
       notes: input.notes.trim(),
+      requestedByUserId: actorUserId,
       serviceTypeId: serviceType.id,
       status: input.dueDate < today() ? "Overdue" : "Upcoming",
       vehicleId: vehicle.id,
@@ -857,25 +874,23 @@ export const fleetDataService = {
     );
     const assignedDriver = activeAssignment
       ? data.driverProfiles.find(
-          (profile) => profile.id === activeAssignment.driverProfileId,
+          (profile) => profile.id === activeAssignment.driverId,
         )
       : undefined;
     if (assignedDriver) {
       addNotification(data, {
-        destination: "/driver/maintenance",
         message: `${serviceType.name} for ${vehicle.fleetNumber} is scheduled for ${input.dueDate}.`,
-        role: "driver",
+        relatedRoute: "/driver/maintenance",
         title: "Upcoming maintenance reminder",
         type: "Reminder",
         userId: assignedDriver.userId,
       });
     }
-    if (mechanicProfileId) {
-      const mechanic = getMechanicProfile(data, mechanicProfileId);
+    if (assignedMechanicId) {
+      const mechanic = getMechanicProfile(data, assignedMechanicId);
       addNotification(data, {
-        destination: "/mechanic/dashboard",
         message: `${serviceType.name} for ${vehicle.fleetNumber} is planned for ${input.dueDate}.`,
-        role: "mechanic",
+        relatedRoute: "/mechanic/dashboard",
         title: "Maintenance schedule assigned",
         type: "Schedule",
         userId: mechanic.userId,
@@ -885,6 +900,8 @@ export const fleetDataService = {
       data,
       actorUserId,
       "Created maintenance schedule",
+      "maintenance_schedule",
+      schedule.id,
       `${vehicle.fleetNumber} ${serviceType.name}`,
     );
     writeData(data);
@@ -913,6 +930,8 @@ export const fleetDataService = {
       data,
       actorUserId,
       "Cancelled maintenance schedule",
+      "maintenance_schedule",
+      schedule.id,
       schedule.id,
     );
     writeData(data);
@@ -931,14 +950,14 @@ export const fleetDataService = {
     }
     const vehicle = getVehicle(data, input.vehicleId);
     const serviceType = getServiceType(data, input.serviceTypeId);
-    if (!serviceType.active && !input.scheduleId) {
+    if (serviceType.status !== "Active" && !input.scheduleId) {
       throw new OperationsError(
         "invalid_record",
         "Select an active service type.",
       );
     }
-    const mechanicProfileId = input.mechanicProfileId || null;
-    if (mechanicProfileId) getMechanicProfile(data, mechanicProfileId);
+    const assignedMechanicId = input.assignedMechanicId || null;
+    if (assignedMechanicId) getMechanicProfile(data, assignedMechanicId);
 
     const schedule = input.scheduleId
       ? data.maintenanceSchedules.find((item) => item.id === input.scheduleId)
@@ -966,22 +985,21 @@ export const fleetDataService = {
       );
     }
 
-    const workOrder: MaintenanceRecord = {
-      completedDate: null,
+    const workOrder = {
+      assignedMechanicId,
       createdAt: new Date().toISOString(),
-      createdByUserId: actorUserId,
       id: createId("work-order"),
-      mechanicProfileId,
       notes: input.notes.trim(),
       priority: input.priority,
+      requestedByUserId: actorUserId,
       scheduleId: schedule?.id ?? null,
       scheduledDate: input.scheduledDate,
       serviceNotes: "",
       serviceTypeId: serviceType.id,
-      status: mechanicProfileId ? "assigned" : "scheduled",
+      status: assignedMechanicId ? "assigned" : "scheduled",
       vehicleId: vehicle.id,
-    };
-    data.maintenanceRecords.push(workOrder);
+    } satisfies MutableFleetData["maintenanceWorkOrders"][number];
+    data.maintenanceWorkOrders.push(workOrder);
     if (schedule) {
       schedule.status = "Converted";
       schedule.workOrderId = workOrder.id;
@@ -990,6 +1008,8 @@ export const fleetDataService = {
       data,
       actorUserId,
       "Created maintenance work order",
+      "maintenance_work_order",
+      workOrder.id,
       `${vehicle.fleetNumber} ${serviceType.name}`,
     );
     writeData(data);
@@ -998,7 +1018,7 @@ export const fleetDataService = {
 
   async assignWorkOrder(
     workOrderId: string,
-    mechanicProfileId: string,
+    assignedMechanicId: string,
     actorUserId: string,
   ) {
     await delay();
@@ -1013,15 +1033,14 @@ export const fleetDataService = {
         "Only scheduled or assigned work can be assigned to a mechanic.",
       );
     }
-    const mechanic = getMechanicProfile(data, mechanicProfileId);
-    workOrder.mechanicProfileId = mechanic.id;
+    const mechanic = getMechanicProfile(data, assignedMechanicId);
+    workOrder.assignedMechanicId = mechanic.id;
     workOrder.status = "assigned";
     const assignedVehicle = getVehicle(data, workOrder.vehicleId);
     const assignedService = getServiceType(data, workOrder.serviceTypeId);
     addNotification(data, {
-      destination: "/maintenance/work-orders",
       message: `${assignedService.name} for ${assignedVehicle.fleetNumber} is assigned to you.`,
-      role: "mechanic",
+      relatedRoute: "/maintenance/work-orders",
       title: "Work order assigned",
       type: "Maintenance",
       userId: mechanic.userId,
@@ -1030,6 +1049,8 @@ export const fleetDataService = {
       data,
       actorUserId,
       "Assigned maintenance work order",
+      "maintenance_work_order",
+      workOrder.id,
       workOrder.id,
     );
     writeData(data);
@@ -1052,7 +1073,7 @@ export const fleetDataService = {
       const mechanic = data.mechanicProfiles.find(
         (profile) => profile.userId === actor.id,
       );
-      if (!mechanic || workOrder.mechanicProfileId !== mechanic.id) {
+      if (!mechanic || workOrder.assignedMechanicId !== mechanic.id) {
         throw new OperationsError(
           "unauthorized",
           "Mechanics can update only work assigned to their account.",
@@ -1070,7 +1091,7 @@ export const fleetDataService = {
       }
     }
     validateWorkOrderTransition(workOrder.status, input.status);
-    if (input.status === "in_progress" && !workOrder.mechanicProfileId) {
+    if (input.status === "in_progress" && !workOrder.assignedMechanicId) {
       throw new OperationsError(
         "invalid_transition",
         "Assign a mechanic before starting this work order.",
@@ -1089,8 +1110,7 @@ export const fleetDataService = {
     const vehicle = getVehicle(data, workOrder.vehicleId);
     if (input.status === "in_progress") vehicle.status = "Maintenance";
     if (input.status === "completed") {
-      workOrder.completedDate = today();
-      const hasOtherActiveWork = data.maintenanceRecords.some(
+      const hasOtherActiveWork = data.maintenanceWorkOrders.some(
         (record) =>
           record.id !== workOrder.id &&
           record.vehicleId === vehicle.id &&
@@ -1105,25 +1125,44 @@ export const fleetDataService = {
       );
       const driver = activeAssignment
         ? data.driverProfiles.find(
-            (profile) => profile.id === activeAssignment.driverProfileId,
+            (profile) => profile.id === activeAssignment.driverId,
           )
         : undefined;
       const serviceType = getServiceType(data, workOrder.serviceTypeId);
       if (driver) {
         addNotification(data, {
-          destination: "/maintenance/history",
           message: `${serviceType.name} for ${vehicle.fleetNumber} was completed.`,
-          role: "driver",
+          relatedRoute: "/maintenance/history",
           title: "Vehicle maintenance completed",
           type: "Maintenance",
           userId: driver.userId,
         });
+      }
+      if (workOrder.assignedMechanicId) {
+        const existingHistory = data.maintenanceHistory.find(
+          (record) => record.workOrderId === workOrder.id,
+        );
+        if (!existingHistory) {
+          data.maintenanceHistory.push({
+            id: createId("maintenance-history"),
+            mechanicId: workOrder.assignedMechanicId,
+            notes: workOrder.serviceNotes,
+            odometerAtService: vehicle.currentMileage,
+            serviceDate: today(),
+            serviceTypeId: workOrder.serviceTypeId,
+            totalCost: 0,
+            vehicleId: workOrder.vehicleId,
+            workOrderId: workOrder.id,
+          });
+        }
       }
     }
     logActivity(
       data,
       input.actorUserId,
       `Updated work order to ${input.status.replace("_", " ")}`,
+      "maintenance_work_order",
+      workOrder.id,
       workOrder.id,
     );
     writeData(data);
@@ -1147,7 +1186,7 @@ export const fleetDataService = {
       const mechanic = data.mechanicProfiles.find(
         (profile) => profile.userId === actor.id,
       );
-      if (!mechanic || workOrder.mechanicProfileId !== mechanic.id) {
+      if (!mechanic || workOrder.assignedMechanicId !== mechanic.id) {
         throw new OperationsError(
           "unauthorized",
           "Mechanics can add notes only to their assigned work.",
@@ -1169,10 +1208,15 @@ export const fleetDataService = {
     await delay();
     const data = readData();
     requireOperationsRole(data, actorUserId, ["admin"]);
-    if (!isRequired(input.name) || !isRequired(input.description)) {
+    if (
+      !isRequired(input.name) ||
+      !isRequired(input.description) ||
+      !Number.isInteger(input.recommendedIntervalKm) ||
+      input.recommendedIntervalKm <= 0
+    ) {
       throw new OperationsError(
         "invalid_record",
-        "Enter a service type name and description.",
+        "Enter a service type name, description, and positive whole-kilometre interval.",
       );
     }
     if (
@@ -1186,12 +1230,21 @@ export const fleetDataService = {
       );
     }
     const serviceType: ServiceType = {
-      active: true,
       description: input.description.trim(),
       id: createId("service-type"),
       name: input.name.trim(),
+      recommendedIntervalKm: input.recommendedIntervalKm,
+      status: "Active",
     };
     data.serviceTypes.push(serviceType);
+    logActivity(
+      data,
+      actorUserId,
+      "Created service type",
+      "service_type",
+      serviceType.id,
+      serviceType.name,
+    );
     writeData(data);
     return serviceType;
   },
@@ -1205,10 +1258,15 @@ export const fleetDataService = {
     const data = readData();
     requireOperationsRole(data, actorUserId, ["admin"]);
     const serviceType = getServiceType(data, serviceTypeId);
-    if (!isRequired(input.name) || !isRequired(input.description)) {
+    if (
+      !isRequired(input.name) ||
+      !isRequired(input.description) ||
+      !Number.isInteger(input.recommendedIntervalKm) ||
+      input.recommendedIntervalKm <= 0
+    ) {
       throw new OperationsError(
         "invalid_record",
-        "Enter a service type name and description.",
+        "Enter a service type name, description, and positive whole-kilometre interval.",
       );
     }
     if (
@@ -1225,6 +1283,15 @@ export const fleetDataService = {
     }
     serviceType.name = input.name.trim();
     serviceType.description = input.description.trim();
+    serviceType.recommendedIntervalKm = input.recommendedIntervalKm;
+    logActivity(
+      data,
+      actorUserId,
+      "Updated service type",
+      "service_type",
+      serviceType.id,
+      serviceType.name,
+    );
     writeData(data);
     return serviceType;
   },
@@ -1234,7 +1301,15 @@ export const fleetDataService = {
     const data = readData();
     requireOperationsRole(data, actorUserId, ["admin"]);
     const serviceType = getServiceType(data, serviceTypeId);
-    serviceType.active = false;
+    serviceType.status = "Inactive";
+    logActivity(
+      data,
+      actorUserId,
+      "Deactivated service type",
+      "service_type",
+      serviceType.id,
+      serviceType.name,
+    );
     writeData(data);
     return serviceType;
   },
@@ -1258,12 +1333,12 @@ export const fleetDataService = {
         "Choose a submission date between the assignment start date and today.",
       );
     }
-    const previousEntries = data.mileageSubmissions.filter(
+    const previousEntries = data.mileageLogs.filter(
       (entry) =>
-        entry.driverProfileId === profile.id && entry.vehicleId === vehicle.id,
+        entry.driverId === profile.id && entry.vehicleId === vehicle.id,
     );
     const latestSubmissionDate = previousEntries
-      .map((entry) => entry.submittedAt.slice(0, 10))
+      .map((entry) => entry.logDate.slice(0, 10))
       .sort()
       .at(-1);
     if (latestSubmissionDate && input.submissionDate < latestSubmissionDate) {
@@ -1273,29 +1348,31 @@ export const fleetDataService = {
       );
     }
     const currentOdometer = Math.max(
-      vehicle.mileage,
-      ...previousEntries.map((entry) => entry.mileage),
+      vehicle.currentMileage,
+      ...previousEntries.map((entry) => entry.odometerReading),
     );
-    if (!Number.isFinite(input.mileage) || input.mileage < currentOdometer) {
+    if (
+      !Number.isInteger(input.odometerReading) ||
+      input.odometerReading < currentOdometer
+    ) {
       throw new SharedFeatureError(
         "invalid_mileage",
         `The odometer reading cannot be lower than ${currentOdometer.toLocaleString()} km.`,
       );
     }
-    const submission: MileageSubmission = {
-      driverProfileId: profile.id,
+    const submission = {
+      driverId: profile.id,
       id: createId("mileage"),
-      mileage: input.mileage,
+      logDate: `${input.submissionDate}T12:00:00.000Z`,
       notes: input.notes.trim(),
-      submittedAt: `${input.submissionDate}T12:00:00.000Z`,
+      odometerReading: input.odometerReading,
       vehicleId: vehicle.id,
-    };
-    data.mileageSubmissions.push(submission);
-    vehicle.mileage = input.mileage;
+    } satisfies MutableFleetData["mileageLogs"][number];
+    data.mileageLogs.push(submission);
+    vehicle.currentMileage = input.odometerReading;
     addNotification(data, {
-      destination: "/driver/mileage",
-      message: `${input.mileage.toLocaleString()} km was recorded for ${vehicle.fleetNumber}.`,
-      role: "driver",
+      message: `${input.odometerReading.toLocaleString()} km was recorded for ${vehicle.fleetNumber}.`,
+      relatedRoute: "/driver/mileage",
       title: "Mileage submission recorded",
       type: "Mileage",
       userId: actorUserId,
@@ -1304,7 +1381,9 @@ export const fleetDataService = {
       data,
       actorUserId,
       "Submitted mileage",
-      `${vehicle.fleetNumber} · ${input.mileage.toLocaleString()} km`,
+      "mileage_log",
+      submission.id,
+      `${vehicle.fleetNumber} · ${input.odometerReading.toLocaleString()} km`,
     );
     writeData(data);
     return submission;
@@ -1326,7 +1405,7 @@ export const fleetDataService = {
         "This notification does not belong to your account.",
       );
     }
-    notification.read = true;
+    notification.readAt = new Date().toISOString();
     writeData(data);
     return notification;
   },
@@ -1339,7 +1418,7 @@ export const fleetDataService = {
       notificationBelongsToUser(notification, actor),
     );
     notifications.forEach((notification) => {
-      notification.read = true;
+      notification.readAt ??= new Date().toISOString();
     });
     writeData(data);
     return notifications.length;
@@ -1358,13 +1437,21 @@ export const fleetDataService = {
     ensureUniqueEmail(data, input.email, actor.id);
     actor.fullName = input.fullName.trim();
     actor.email = normalize(input.email);
-    logActivity(data, actor.id, "Updated profile", actor.fullName);
+    logActivity(
+      data,
+      actor.id,
+      "Updated profile",
+      "profile",
+      actor.id,
+      actor.fullName,
+    );
     writeData(data);
     return actor;
   },
 
   resetForTests() {
     window.localStorage.removeItem(STORAGE_KEY);
+    window.localStorage.removeItem(LEGACY_STORAGE_KEY);
   },
 };
 

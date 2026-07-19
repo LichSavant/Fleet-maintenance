@@ -18,7 +18,7 @@ export class SharedFeatureError extends Error {
 }
 
 export interface MileageSubmissionInput {
-  mileage: number;
+  odometerReading: number;
   notes: string;
   submissionDate: string;
 }

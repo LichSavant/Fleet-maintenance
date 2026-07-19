@@ -105,7 +105,7 @@ export default function WorkOrdersPage() {
         <div className="primary-cell">
           <strong>{serviceType.name}</strong>
           <span>
-            {vehicle.fleetNumber} · {vehicle.plate}
+            {vehicle.fleetNumber} · {vehicle.plateNumber}
           </span>
         </div>
       ),
@@ -314,11 +314,11 @@ export default function WorkOrdersPage() {
           data={data}
           isOpen
           onClose={() => setAssigning(null)}
-          onSubmit={async (mechanicProfileId) => {
+          onSubmit={async (assignedMechanicId) => {
             if (!user) return;
             await fleetDataService.assignWorkOrder(
               assigning.workOrder.id,
-              mechanicProfileId,
+              assignedMechanicId,
               user.id,
             );
             setFeedback({

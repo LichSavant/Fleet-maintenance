@@ -45,7 +45,7 @@ export default function AssignmentsPage() {
           (!query ||
             driver.fullName.toLowerCase().includes(query) ||
             vehicle.fleetNumber.toLowerCase().includes(query) ||
-            vehicle.plate.toLowerCase().includes(query)),
+            vehicle.plateNumber.toLowerCase().includes(query)),
       )
       .sort((left, right) =>
         right.assignment.startDate.localeCompare(left.assignment.startDate),
@@ -59,7 +59,7 @@ export default function AssignmentsPage() {
       render: ({ vehicle }) => (
         <div className="primary-cell">
           <strong>{vehicle.fleetNumber}</strong>
-          <span>{vehicle.plate}</span>
+          <span>{vehicle.plateNumber}</span>
         </div>
       ),
     },

@@ -1,6 +1,8 @@
 import type { UserRole } from "./auth";
 
-export type UserStatus = "Active" | "Inactive";
+export type RecordStatus = "Active" | "Inactive";
+export type UserStatus = RecordStatus;
+export type DriverStatus = "Assigned" | "Available" | "Inactive";
 export type VehicleStatus =
   "Active" | "Maintenance" | "Inspection" | "Out of Service";
 export type AssignmentStatus = "Active" | "Ended";
@@ -8,139 +10,170 @@ export type WorkOrderStatus =
   "scheduled" | "assigned" | "in_progress" | "completed" | "cancelled";
 export type ScheduleStatus = "Overdue" | "Upcoming" | "Converted" | "Cancelled";
 export type Priority = "Low" | "Medium" | "High";
+export type NotificationType =
+  "Assignment" | "Maintenance" | "Mileage" | "Reminder" | "Schedule" | "System";
+export type AuditEntityType =
+  | "assignment"
+  | "maintenance_history"
+  | "maintenance_schedule"
+  | "maintenance_work_order"
+  | "mileage_log"
+  | "notification"
+  | "profile"
+  | "service_type"
+  | "user"
+  | "vehicle";
 
-export interface FleetUserRecord {
-  email: string;
-  fullName: string;
+export interface User {
   id: string;
+  fullName: string;
+  email: string;
   role: UserRole;
   status: UserStatus;
 }
 
-export interface ManagerProfile {
-  depot: string;
+export interface DriverProfile {
   id: string;
   userId: string;
+  employeeNumber: string;
+  licenseNumber: string;
+  phone: string;
+  status: DriverStatus;
 }
 
 export interface MechanicProfile {
   id: string;
-  specialty: string;
-  status: UserStatus;
   userId: string;
+  employeeNumber: string;
+  specialization: string;
+  phone: string;
+  status: RecordStatus;
 }
 
-export interface DriverProfile {
+export interface ManagerProfile {
   id: string;
-  licenseNumber: string;
-  status: "Assigned" | "Available" | "Inactive";
   userId: string;
+  depot: string;
 }
 
 export interface Vehicle {
-  fleetNumber: string;
-  health: number;
   id: string;
-  manufacturer: string;
-  mileage: number;
+  plateNumber: string;
+  vin: string;
+  make: string;
   model: string;
-  plate: string;
-  status: VehicleStatus;
-  type: string;
   year: number;
+  currentMileage: number;
+  status: VehicleStatus;
+  fleetNumber: string;
+  type: string;
 }
 
 export interface VehicleAssignment {
-  driverProfileId: string;
-  endDate: string | null;
   id: string;
+  driverId: string;
+  vehicleId: string;
   startDate: string;
+  endDate: string | null;
   status: AssignmentStatus;
-  vehicleId: string;
 }
 
-export interface MaintenanceRecord {
-  completedDate: string | null;
-  createdAt: string;
-  createdByUserId: string;
+export interface MileageLog {
   id: string;
-  mechanicProfileId: string | null;
-  notes: string;
-  priority: Priority;
-  scheduleId: string | null;
-  scheduledDate: string;
-  serviceNotes: string;
-  serviceTypeId: string;
-  status: WorkOrderStatus;
   vehicleId: string;
-}
-
-export interface MaintenanceSchedule {
-  createdAt: string;
-  createdByUserId: string;
-  dueDate: string;
-  id: string;
-  mechanicProfileId: string | null;
+  driverId: string;
+  odometerReading: number;
+  logDate: string;
   notes: string;
-  serviceTypeId: string;
-  status: ScheduleStatus;
-  vehicleId: string;
-  workOrderId: string | null;
 }
 
 export interface ServiceType {
-  active: boolean;
-  description: string;
   id: string;
   name: string;
+  description: string;
+  recommendedIntervalKm: number;
+  status: RecordStatus;
 }
 
-export interface MileageSubmission {
-  driverProfileId: string;
+export interface MaintenanceWorkOrder {
   id: string;
-  mileage: number;
-  notes: string;
-  submittedAt: string;
   vehicleId: string;
-}
-
-export interface FleetNotification {
+  serviceTypeId: string;
+  assignedMechanicId: string | null;
+  requestedByUserId: string;
+  status: WorkOrderStatus;
+  scheduledDate: string;
+  notes: string;
+  priority: Priority;
+  scheduleId: string | null;
+  serviceNotes: string;
   createdAt: string;
-  destination: string;
-  id: string;
-  message: string;
-  read: boolean;
-  role?: UserRole;
-  title: string;
-  type:
-    | "Assignment"
-    | "Maintenance"
-    | "Mileage"
-    | "Reminder"
-    | "Schedule"
-    | "System";
-  userId?: string;
 }
 
-export interface SystemActivity {
-  action: string;
-  entityLabel: string;
+export interface MaintenanceHistoryRecord {
   id: string;
-  occurredAt: string;
+  vehicleId: string;
+  serviceTypeId: string;
+  mechanicId: string;
+  workOrderId: string;
+  serviceDate: string;
+  odometerAtService: number;
+  totalCost: number;
+  notes: string;
+}
+
+/**
+ * Existing date-based planning record retained for current route compatibility.
+ * It is distinct from completed maintenance history and will be aligned with
+ * mileage-based due calculations in a later implementation stage.
+ */
+export interface MaintenanceSchedule {
+  id: string;
+  vehicleId: string;
+  serviceTypeId: string;
+  assignedMechanicId: string | null;
+  requestedByUserId: string;
+  dueDate: string;
+  status: ScheduleStatus;
+  notes: string;
+  createdAt: string;
+  workOrderId: string | null;
+}
+
+export interface Notification {
+  id: string;
   userId: string;
+  type: NotificationType;
+  title: string;
+  message: string;
+  createdAt: string;
+  readAt: string | null;
+  relatedRoute: string;
 }
 
-export interface FleetDataSource {
-  assignments: readonly VehicleAssignment[];
+export interface AuditEvent {
+  id: string;
+  userId: string;
+  role: UserRole;
+  action: string;
+  entityType: AuditEntityType;
+  entityId: string;
+  description: string;
+  createdAt: string;
+}
+
+export interface FleetState {
+  users: readonly User[];
   driverProfiles: readonly DriverProfile[];
-  maintenanceRecords: readonly MaintenanceRecord[];
-  maintenanceSchedules: readonly MaintenanceSchedule[];
-  managerProfiles: readonly ManagerProfile[];
   mechanicProfiles: readonly MechanicProfile[];
-  mileageSubmissions: readonly MileageSubmission[];
-  notifications: readonly FleetNotification[];
-  serviceTypes: readonly ServiceType[];
-  systemActivity: readonly SystemActivity[];
-  users: readonly FleetUserRecord[];
+  managerProfiles: readonly ManagerProfile[];
   vehicles: readonly Vehicle[];
+  assignments: readonly VehicleAssignment[];
+  mileageLogs: readonly MileageLog[];
+  serviceTypes: readonly ServiceType[];
+  maintenanceWorkOrders: readonly MaintenanceWorkOrder[];
+  maintenanceHistory: readonly MaintenanceHistoryRecord[];
+  maintenanceSchedules: readonly MaintenanceSchedule[];
+  notifications: readonly Notification[];
+  auditEvents: readonly AuditEvent[];
 }

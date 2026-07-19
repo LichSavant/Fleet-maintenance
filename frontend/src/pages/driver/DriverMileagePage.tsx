@@ -14,7 +14,7 @@ import { useAuth } from "../../hooks/useAuth";
 import { useFleetData } from "../../hooks/useFleetData";
 import { fleetDataService } from "../../services/fleetDataService";
 import { sharedViewService } from "../../services/sharedViewService";
-import type { MileageSubmission } from "../../types/fleet";
+import type { MileageLog } from "../../types/fleet";
 import { formatDate } from "../../utils/formatDate";
 import { getStatusTone } from "../../utils/statusTone";
 
@@ -57,7 +57,7 @@ export default function DriverMileagePage() {
     try {
       await fleetDataService.submitMileage(
         {
-          mileage: Number(mileage),
+          odometerReading: Number(mileage),
           notes,
           submissionDate,
         },
@@ -108,7 +108,7 @@ export default function DriverMileagePage() {
               <div>
                 <strong>{vehicle.fleetNumber}</strong>
                 <span>
-                  {vehicle.manufacturer} {vehicle.model} · {vehicle.plate}
+                  {vehicle.make} {vehicle.model} · {vehicle.plateNumber}
                 </span>
               </div>
               <StatusBadge tone={getStatusTone(vehicle.status)}>
@@ -117,7 +117,7 @@ export default function DriverMileagePage() {
               <dl>
                 <div>
                   <dt>Current odometer</dt>
-                  <dd>{vehicle.mileage.toLocaleString()} km</dd>
+                  <dd>{vehicle.currentMileage.toLocaleString()} km</dd>
                 </div>
                 <div>
                   <dt>Assignment started</dt>
@@ -144,10 +144,12 @@ export default function DriverMileagePage() {
             >
               <Input
                 disabled={!vehicle}
-                min={vehicle?.mileage ?? 0}
+                min={vehicle?.currentMileage ?? 0}
                 onChange={(event) => setMileage(event.target.value)}
                 placeholder={
-                  vehicle ? String(vehicle.mileage) : "No assigned vehicle"
+                  vehicle
+                    ? String(vehicle.currentMileage)
+                    : "No assigned vehicle"
                 }
                 step="1"
                 type="number"
@@ -187,19 +189,19 @@ export default function DriverMileagePage() {
         </Card>
       </div>
       <Card eyebrow="Submission log" title="Previous mileage history">
-        <Table<MileageSubmission>
+        <Table<MileageLog>
           caption="Mileage submissions for the signed-in driver"
           columns={[
             {
               header: "Date",
               key: "date",
-              render: (entry) => formatDate(entry.submittedAt),
+              render: (entry) => formatDate(entry.logDate),
             },
             {
               align: "right",
               header: "Odometer",
               key: "mileage",
-              render: (entry) => `${entry.mileage.toLocaleString()} km`,
+              render: (entry) => `${entry.odometerReading.toLocaleString()} km`,
             },
             {
               header: "Vehicle",

@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from "react";
 
-import type { FleetDataSource, Priority } from "../../types/fleet";
+import type { FleetState, Priority } from "../../types/fleet";
 import type { WorkOrderInput } from "../../types/operations";
 import { Button } from "../ui/Button";
 import { FormField } from "../ui/FormField";
@@ -10,7 +10,7 @@ import { Select } from "../ui/Select";
 import { TextArea } from "../ui/TextArea";
 
 interface WorkOrderFormModalProps {
-  data: FleetDataSource;
+  data: FleetState;
   isOpen: boolean;
   onClose: () => void;
   onSubmit: (input: WorkOrderInput) => Promise<void>;
@@ -50,7 +50,7 @@ export function WorkOrderFormModal({
       schedule
         ? {
             ...current,
-            mechanicProfileId: schedule.mechanicProfileId ?? undefined,
+            assignedMechanicId: schedule.assignedMechanicId ?? undefined,
             notes: schedule.notes,
             scheduleId: schedule.id,
             scheduledDate: schedule.dueDate,
@@ -169,7 +169,7 @@ export function WorkOrderFormModal({
             >
               <option value="">Select a service</option>
               {data.serviceTypes
-                .filter((item) => item.active)
+                .filter((item) => item.status === "Active")
                 .map((serviceType) => (
                   <option key={serviceType.id} value={serviceType.id}>
                     {serviceType.name}
@@ -210,15 +210,15 @@ export function WorkOrderFormModal({
               onChange={(event) =>
                 setValues((current) => ({
                   ...current,
-                  mechanicProfileId: event.target.value || undefined,
+                  assignedMechanicId: event.target.value || undefined,
                 }))
               }
-              value={values.mechanicProfileId ?? ""}
+              value={values.assignedMechanicId ?? ""}
             >
               <option value="">Assign later</option>
               {mechanics.map(({ profile, user }) => (
                 <option key={profile.id} value={profile.id}>
-                  {user.fullName} · {profile.specialty}
+                  {user.fullName} · {profile.specialization}
                 </option>
               ))}
             </Select>

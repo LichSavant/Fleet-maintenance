@@ -21,21 +21,21 @@ export class OperationsError extends Error {
 }
 
 export interface AssignmentInput {
-  driverProfileId: string;
+  driverId: string;
   startDate: string;
   vehicleId: string;
 }
 
 export interface MaintenanceScheduleInput {
   dueDate: string;
-  mechanicProfileId?: string;
+  assignedMechanicId?: string;
   notes: string;
   serviceTypeId: string;
   vehicleId: string;
 }
 
 export interface WorkOrderInput {
-  mechanicProfileId?: string;
+  assignedMechanicId?: string;
   notes: string;
   priority: Priority;
   scheduleId?: string;
@@ -53,4 +53,5 @@ export interface WorkOrderTransitionInput {
 export interface ServiceTypeInput {
   description: string;
   name: string;
+  recommendedIntervalKm: number;
 }

@@ -61,8 +61,8 @@ export default function VehiclesPage() {
         (record) =>
           (!query ||
             record.vehicle.fleetNumber.toLowerCase().includes(query) ||
-            record.vehicle.plate.toLowerCase().includes(query) ||
-            record.vehicle.manufacturer.toLowerCase().includes(query) ||
+            record.vehicle.plateNumber.toLowerCase().includes(query) ||
+            record.vehicle.make.toLowerCase().includes(query) ||
             record.vehicle.model.toLowerCase().includes(query) ||
             record.assignedDriver?.fullName.toLowerCase().includes(query)) &&
           (status === "all" || record.vehicle.status === status) &&
@@ -75,7 +75,7 @@ export default function VehiclesPage() {
           );
         }
         if (sort === "mileage")
-          return right.vehicle.mileage - left.vehicle.mileage;
+          return right.vehicle.currentMileage - left.vehicle.currentMileage;
         if (sort === "year") return right.vehicle.year - left.vehicle.year;
         return left.vehicle.fleetNumber.localeCompare(
           right.vehicle.fleetNumber,
@@ -97,15 +97,14 @@ export default function VehiclesPage() {
       render: (record) => (
         <div className="primary-cell">
           <strong>{record.vehicle.fleetNumber}</strong>
-          <span>{record.vehicle.plate}</span>
+          <span>{record.vehicle.plateNumber}</span>
         </div>
       ),
     },
     {
       header: "Make and model",
       key: "model",
-      render: (record) =>
-        `${record.vehicle.manufacturer} ${record.vehicle.model}`,
+      render: (record) => `${record.vehicle.make} ${record.vehicle.model}`,
     },
     {
       header: "Year / type",
@@ -115,7 +114,8 @@ export default function VehiclesPage() {
     {
       header: "Mileage",
       key: "mileage",
-      render: (record) => `${record.vehicle.mileage.toLocaleString()} km`,
+      render: (record) =>
+        `${record.vehicle.currentMileage.toLocaleString()} km`,
     },
     {
       header: "Assigned driver",
@@ -309,17 +309,21 @@ export default function VehiclesPage() {
           viewing
             ? [
                 { label: "Fleet number", value: viewing.vehicle.fleetNumber },
-                { label: "Plate number", value: viewing.vehicle.plate },
+                {
+                  label: "Plate number",
+                  value: viewing.vehicle.plateNumber,
+                },
+                { label: "VIN", value: viewing.vehicle.vin },
                 {
                   label: "Make and model",
-                  value: `${viewing.vehicle.manufacturer} ${viewing.vehicle.model}`,
+                  value: `${viewing.vehicle.make} ${viewing.vehicle.model}`,
                 },
                 { label: "Year", value: viewing.vehicle.year },
                 { label: "Vehicle type", value: viewing.vehicle.type },
                 { label: "Status", value: viewing.vehicle.status },
                 {
                   label: "Mileage",
-                  value: `${viewing.vehicle.mileage.toLocaleString()} km`,
+                  value: `${viewing.vehicle.currentMileage.toLocaleString()} km`,
                 },
                 {
                   label: "Assigned driver",

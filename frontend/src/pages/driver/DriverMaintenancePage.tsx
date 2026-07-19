@@ -47,8 +47,8 @@ export default function DriverMaintenancePage() {
             <div>
               <strong>{maintenance.vehicle.fleetNumber}</strong>
               <span>
-                {maintenance.vehicle.manufacturer} {maintenance.vehicle.model} ·{" "}
-                {maintenance.vehicle.plate}
+                {maintenance.vehicle.make} {maintenance.vehicle.model} ·{" "}
+                {maintenance.vehicle.plateNumber}
               </span>
             </div>
             <StatusBadge tone={getStatusTone(maintenance.vehicle.status)}>

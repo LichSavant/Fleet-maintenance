@@ -60,8 +60,10 @@ export default function ServiceTypesPage() {
       header: "Status",
       key: "status",
       render: (serviceType) => (
-        <StatusBadge tone={serviceType.active ? "success" : "neutral"}>
-          {serviceType.active ? "Active" : "Inactive"}
+        <StatusBadge
+          tone={serviceType.status === "Active" ? "success" : "neutral"}
+        >
+          {serviceType.status}
         </StatusBadge>
       ),
     },
@@ -82,7 +84,7 @@ export default function ServiceTypesPage() {
               Edit
             </Button>
             <Button
-              disabled={!serviceType.active}
+              disabled={serviceType.status !== "Active"}
               onClick={() => setDeactivating(serviceType)}
               size="small"
               variant="danger"
@@ -191,6 +193,7 @@ export default function ServiceTypesPage() {
                   description: editing.description,
                   id: editing.id,
                   name: editing.name,
+                  recommendedIntervalKm: editing.recommendedIntervalKm,
                 }
               : null
           }

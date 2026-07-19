@@ -2,13 +2,13 @@ import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 
 import { useAuth } from "../../hooks/useAuth";
-import type { FleetNotification } from "../../types/fleet";
+import type { Notification } from "../../types/fleet";
 import { formatRole } from "../../utils/roleRoutes";
 import { Button } from "../ui/Button";
 import { Icon } from "../ui/Icon";
 
 export interface AuthenticatedHeaderActionsProps {
-  notifications: readonly FleetNotification[];
+  notifications: readonly Notification[];
 }
 
 type OpenPanel = "notifications" | "profile" | null;
@@ -30,7 +30,7 @@ export function AuthenticatedHeaderActions({
   const [openPanel, setOpenPanel] = useState<OpenPanel>(null);
   const actionsRef = useRef<HTMLDivElement>(null);
   const unreadCount = notifications.filter(
-    (notification) => !notification.read,
+    (notification) => !notification.readAt,
   ).length;
 
   useEffect(() => {
@@ -98,14 +98,16 @@ export function AuthenticatedHeaderActions({
                 {notifications.slice(0, 4).map((notification) => (
                   <article key={notification.id}>
                     <span
-                      aria-label={notification.read ? "Read" : "Unread"}
-                      className={notification.read ? "read-dot" : "unread-dot"}
+                      aria-label={notification.readAt ? "Read" : "Unread"}
+                      className={
+                        notification.readAt ? "read-dot" : "unread-dot"
+                      }
                     />
                     <div>
                       <Link
                         className="header-notification-link"
                         onClick={() => setOpenPanel(null)}
-                        to={notification.destination}
+                        to={notification.relatedRoute}
                       >
                         <strong>{notification.title}</strong>
                       </Link>

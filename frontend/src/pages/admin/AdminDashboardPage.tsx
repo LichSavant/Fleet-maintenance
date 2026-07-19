@@ -41,9 +41,9 @@ export default function AdminDashboardPage() {
         emptyTitle="No system activity"
         eyebrow="Audit trail"
         items={dashboard.recentActivity.map((activity) => ({
-          description: `${activity.actorName} · ${activity.entityLabel}`,
+          description: `${activity.actorName} · ${activity.description}`,
           id: activity.id,
-          meta: formatDate(activity.occurredAt),
+          meta: formatDate(activity.createdAt),
           title: activity.action,
         }))}
         title="Recent system activity"

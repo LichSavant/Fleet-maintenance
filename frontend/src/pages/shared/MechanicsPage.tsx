@@ -51,7 +51,7 @@ export default function MechanicsPage() {
           (!query ||
             record.user.fullName.toLowerCase().includes(query) ||
             record.user.email.toLowerCase().includes(query) ||
-            record.profile.specialty.toLowerCase().includes(query)) &&
+            record.profile.specialization.toLowerCase().includes(query)) &&
           (status === "all" || record.user.status === status) &&
           (work === "all" ||
             (work === "open" && record.openWork > 0) ||
@@ -78,8 +78,8 @@ export default function MechanicsPage() {
     },
     {
       header: "Specialty",
-      key: "specialty",
-      render: (record) => record.profile.specialty,
+      key: "specialization",
+      render: (record) => record.profile.specialization,
     },
     {
       header: "Open work",
@@ -126,7 +126,7 @@ export default function MechanicsPage() {
         fullName: editing.user.fullName,
         id: editing.user.id,
         role: "mechanic",
-        specialty: editing.profile.specialty,
+        specialization: editing.profile.specialization,
       }
     : null;
 
@@ -138,7 +138,7 @@ export default function MechanicsPage() {
       await fleetDataService.createMechanic({
         email: values.email,
         fullName: values.fullName,
-        specialty: values.specialty ?? "",
+        specialization: values.specialization ?? "",
       });
       setFeedback({
         message: "Mechanic account and profile created.",
@@ -189,7 +189,7 @@ export default function MechanicsPage() {
               id="mechanic-search"
               label="Search mechanics"
               onChange={setSearch}
-              placeholder="Search mechanic or specialty"
+              placeholder="Search mechanic or specialization"
               value={search}
             />
             <label className="toolbar-field">
@@ -275,7 +275,10 @@ export default function MechanicsPage() {
             ? [
                 { label: "Mechanic", value: viewing.user.fullName },
                 { label: "Email", value: viewing.user.email },
-                { label: "Specialty", value: viewing.profile.specialty },
+                {
+                  label: "Specialty",
+                  value: viewing.profile.specialization,
+                },
                 { label: "Open work", value: viewing.openWork },
                 { label: "Completed service", value: viewing.completedWork },
                 { label: "Account status", value: viewing.user.status },

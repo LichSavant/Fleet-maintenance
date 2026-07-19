@@ -143,9 +143,9 @@ export default function UsersPage() {
         (profile) => profile.userId === user.id,
       )?.licenseNumber,
       role: user.role,
-      specialty: data.mechanicProfiles.find(
+      specialization: data.mechanicProfiles.find(
         (profile) => profile.userId === user.id,
-      )?.specialty,
+      )?.specialization,
     };
   };
 

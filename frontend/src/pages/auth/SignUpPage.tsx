@@ -20,7 +20,7 @@ interface SignUpErrors {
   licenseNumber?: string;
   password?: string;
   role?: string;
-  specialty?: string;
+  specialization?: string;
 }
 
 const initialForm = {
@@ -30,7 +30,7 @@ const initialForm = {
   licenseNumber: "",
   password: "",
   role: "" as UserRole | "",
-  specialty: "",
+  specialization: "",
 };
 
 export default function SignUpPage() {
@@ -66,8 +66,8 @@ export default function SignUpPage() {
     if (form.role === "driver" && !isRequired(form.licenseNumber)) {
       nextErrors.licenseNumber = "Driver license number is required.";
     }
-    if (form.role === "mechanic" && !isRequired(form.specialty)) {
-      nextErrors.specialty = "Mechanic specialty is required.";
+    if (form.role === "mechanic" && !isRequired(form.specialization)) {
+      nextErrors.specialization = "Mechanic specialization is required.";
     }
 
     setErrors(nextErrors);
@@ -198,15 +198,17 @@ export default function SignUpPage() {
 
         {form.role === "mechanic" && (
           <FormField
-            error={errors.specialty}
-            id="sign-up-specialty"
-            label="Mechanic specialty"
+            error={errors.specialization}
+            id="sign-up-specialization"
+            label="Mechanic specialization"
             required
           >
             <Input
               autoComplete="organization-title"
-              onChange={(event) => updateField("specialty", event.target.value)}
-              value={form.specialty}
+              onChange={(event) =>
+                updateField("specialization", event.target.value)
+              }
+              value={form.specialization}
             />
           </FormField>
         )}

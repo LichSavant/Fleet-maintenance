@@ -67,7 +67,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     try {
       await fleetDataService.registerSelfServiceAccount(user, {
         licenseNumber: input.licenseNumber,
-        specialty: input.specialty,
+        specialization: input.specialization,
       });
       return user;
     } catch (error) {

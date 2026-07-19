@@ -11,7 +11,7 @@ describe("fleet operational workflows", () => {
   it("creates a valid assignment and updates the linked driver state", async () => {
     const assignment = await fleetDataService.createAssignment(
       {
-        driverProfileId: "driver-profile-maya",
+        driverId: "driver-profile-maya",
         startDate: "2026-07-19",
         vehicleId: "vehicle-nova-7710",
       },
@@ -40,7 +40,7 @@ describe("fleet operational workflows", () => {
     await expect(
       fleetDataService.createAssignment(
         {
-          driverProfileId: profile?.id ?? "",
+          driverId: profile?.id ?? "",
           startDate: "2026-07-19",
           vehicleId: "vehicle-axiom-2048",
         },
@@ -51,7 +51,7 @@ describe("fleet operational workflows", () => {
     await expect(
       fleetDataService.createAssignment(
         {
-          driverProfileId: "driver-profile-carlo",
+          driverId: "driver-profile-carlo",
           startDate: "2026-07-19",
           vehicleId: "vehicle-nova-7710",
         },
@@ -84,7 +84,7 @@ describe("fleet operational workflows", () => {
     const schedule = await fleetDataService.createMaintenanceSchedule(
       {
         dueDate: "2026-08-20",
-        mechanicProfileId: "mechanic-profile-noel",
+        assignedMechanicId: "mechanic-profile-noel",
         notes: "Prepare inspection bay.",
         serviceTypeId: "service-type-brakes",
         vehicleId: "vehicle-axiom-2048",
@@ -93,7 +93,7 @@ describe("fleet operational workflows", () => {
     );
     const workOrder = await fleetDataService.createWorkOrder(
       {
-        mechanicProfileId: "mechanic-profile-noel",
+        assignedMechanicId: "mechanic-profile-noel",
         notes: schedule.notes,
         priority: "Medium",
         scheduleId: schedule.id,
@@ -143,16 +143,23 @@ describe("fleet operational workflows", () => {
       status: "completed",
     });
     const data = fleetDataService.getSnapshot();
-    const completed = data.maintenanceRecords.find(
+    const completed = data.maintenanceWorkOrders.find(
       (item) => item.id === "maintenance-obsidian-brakes",
     );
 
     expect(completed).toMatchObject({ status: "completed" });
-    expect(completed?.completedDate).toBeTruthy();
+    const history = data.maintenanceHistory.find(
+      (record) => record.workOrderId === completed?.id,
+    );
+    expect(history).toMatchObject({
+      mechanicId: "mechanic-profile-noel",
+      odometerAtService: 211040,
+      vehicleId: "vehicle-obsidian-3990",
+    });
     expect(
       operationsViewService
         .getServiceHistory(data)
-        .some(({ workOrder }) => workOrder.id === completed?.id),
+        .some(({ history: record }) => record.workOrderId === completed?.id),
     ).toBe(true);
   });
 
@@ -199,7 +206,11 @@ describe("fleet operational workflows", () => {
 
     await expect(
       fleetDataService.createServiceType(
-        { description: "Manager attempt", name: "Restricted service" },
+        {
+          description: "Manager attempt",
+          name: "Restricted service",
+          recommendedIntervalKm: 10000,
+        },
         "demo-user-manager",
       ),
     ).rejects.toMatchObject({ code: "unauthorized" });

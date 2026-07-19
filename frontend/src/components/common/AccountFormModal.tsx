@@ -26,7 +26,7 @@ interface AccountFormErrors {
   email?: string;
   fullName?: string;
   licenseNumber?: string;
-  specialty?: string;
+  specialization?: string;
 }
 
 const EMPTY_VALUES: UserAccountInput = {
@@ -35,7 +35,7 @@ const EMPTY_VALUES: UserAccountInput = {
   fullName: "",
   licenseNumber: "",
   role: "driver",
-  specialty: "",
+  specialization: "",
 };
 
 export function AccountFormModal({
@@ -69,8 +69,11 @@ export function AccountFormModal({
     if (values.role === "driver" && !isRequired(values.licenseNumber ?? "")) {
       nextErrors.licenseNumber = "Enter a license number.";
     }
-    if (values.role === "mechanic" && !isRequired(values.specialty ?? "")) {
-      nextErrors.specialty = "Enter a specialty.";
+    if (
+      values.role === "mechanic" &&
+      !isRequired(values.specialization ?? "")
+    ) {
+      nextErrors.specialization = "Enter a specialization.";
     }
     if (values.role === "manager" && !isRequired(values.depot ?? "")) {
       nextErrors.depot = "Enter a depot.";
@@ -188,14 +191,14 @@ export function AccountFormModal({
         )}
         {values.role === "mechanic" && (
           <FormField
-            error={errors.specialty}
-            id="account-specialty"
-            label="Specialty"
+            error={errors.specialization}
+            id="account-specialization"
+            label="Specialization"
             required
           >
             <Input
-              onChange={(event) => update("specialty", event.target.value)}
-              value={values.specialty}
+              onChange={(event) => update("specialization", event.target.value)}
+              value={values.specialization}
             />
           </FormField>
         )}

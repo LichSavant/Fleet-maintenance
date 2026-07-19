@@ -1,8 +1,8 @@
 import type { UserRole } from "./auth";
 import type {
   DriverProfile,
-  FleetUserRecord,
   MechanicProfile,
+  User,
   UserStatus,
   Vehicle,
   VehicleAssignment,
@@ -33,40 +33,49 @@ export class ManagementError extends Error {
 export interface UserAccountInput {
   depot?: string;
   email: string;
+  employeeNumber?: string;
   fullName: string;
   licenseNumber?: string;
+  phone?: string;
   role: UserRole;
-  specialty?: string;
+  specialization?: string;
 }
 
 export interface UserAccountUpdateInput {
   depot?: string;
   email: string;
+  employeeNumber?: string;
   fullName: string;
   licenseNumber?: string;
-  specialty?: string;
+  phone?: string;
+  specialization?: string;
 }
 
 export interface DriverAccountInput {
   email: string;
+  employeeNumber?: string;
   fullName: string;
   licenseNumber: string;
+  phone?: string;
 }
 
 export interface MechanicAccountInput {
   email: string;
+  employeeNumber?: string;
   fullName: string;
-  specialty: string;
+  phone?: string;
+  specialization: string;
 }
 
 export interface VehicleInput {
+  currentMileage: number;
   fleetNumber: string;
-  manufacturer: string;
-  mileage: number;
+  make: string;
   model: string;
-  plate: string;
+  plateNumber: string;
   status: VehicleStatus;
   type: string;
+  vin: string;
   year: number;
 }
 
@@ -76,25 +85,25 @@ export interface AccountStatusView {
 
 export interface UserManagementRecord {
   profileDetail: string;
-  user: FleetUserRecord;
+  user: User;
 }
 
 export interface DriverManagementRecord {
   activeAssignment?: VehicleAssignment;
   assignedVehicle?: Vehicle;
   profile: DriverProfile;
-  user: FleetUserRecord;
+  user: User;
 }
 
 export interface MechanicManagementRecord {
   completedWork: number;
   openWork: number;
   profile: MechanicProfile;
-  user: FleetUserRecord;
+  user: User;
 }
 
 export interface VehicleManagementRecord {
-  assignedDriver?: FleetUserRecord;
+  assignedDriver?: User;
   lastServiceDate?: string;
   nextServiceDate?: string;
   vehicle: Vehicle;

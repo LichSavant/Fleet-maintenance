@@ -53,7 +53,7 @@ export default function ManagerDashboardPage() {
             description: `${assignment.driverName} · assigned ${formatDate(assignment.startDate)}`,
             id: assignment.id,
             status: assignment.vehicle.status,
-            title: `${assignment.vehicle.plate} · ${assignment.vehicle.model}`,
+            title: `${assignment.vehicle.plateNumber} · ${assignment.vehicle.model}`,
             tone: getStatusTone(assignment.vehicle.status),
           }))}
           title="Current assignments"
@@ -63,7 +63,7 @@ export default function ManagerDashboardPage() {
           emptyTitle="No upcoming maintenance"
           eyebrow="Maintenance"
           items={dashboard.upcomingMaintenance.map((schedule) => ({
-            description: `${schedule.vehicle.plate} · due ${formatDate(schedule.dueDate)}`,
+            description: `${schedule.vehicle.plateNumber} · due ${formatDate(schedule.dueDate)}`,
             id: schedule.id,
             status: schedule.status,
             title: schedule.service,
@@ -76,10 +76,10 @@ export default function ManagerDashboardPage() {
           emptyTitle="No driver activity"
           eyebrow="Driver records"
           items={dashboard.driverActivity.slice(0, 4).map((submission) => ({
-            description: `${submission.driverName} · ${submission.vehicle.plate}`,
+            description: `${submission.driverName} · ${submission.vehicle.plateNumber}`,
             id: submission.id,
-            meta: formatDate(submission.submittedAt),
-            status: `${formatNumber(submission.mileage)} km`,
+            meta: formatDate(submission.logDate),
+            status: `${formatNumber(submission.odometerReading)} km`,
             title: submission.notes,
           }))}
           title="Driver activity"
@@ -103,7 +103,7 @@ export default function ManagerDashboardPage() {
           emptyTitle="No recent schedules"
           eyebrow="Planning"
           items={dashboard.recentSchedules.slice(0, 4).map((schedule) => ({
-            description: `${schedule.vehicle.plate} · due ${formatDate(schedule.dueDate)}`,
+            description: `${schedule.vehicle.plateNumber} · due ${formatDate(schedule.dueDate)}`,
             id: schedule.id,
             meta: `Created ${formatDate(schedule.createdAt)}`,
             status: schedule.status,

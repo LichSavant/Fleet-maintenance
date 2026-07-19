@@ -9,7 +9,7 @@ import { useAuth } from "../../hooks/useAuth";
 import { useFleetData } from "../../hooks/useFleetData";
 import {
   operationsViewService,
-  type WorkOrderOperationalView,
+  type ServiceHistoryOperationalView,
 } from "../../services/operationsViewService";
 import { formatDate } from "../../utils/formatDate";
 
@@ -22,13 +22,11 @@ export default function ServiceHistoryPage() {
     if (!data || !user) return [];
     let history = operationsViewService.getServiceHistory(data);
     if (user.role === "mechanic") {
-      const mechanicIds = new Set(
-        operationsViewService
-          .getWorkOrdersForMechanic(data, user.id)
-          .map(({ workOrder }) => workOrder.id),
+      const profile = data.mechanicProfiles.find(
+        (item) => item.userId === user.id,
       );
-      history = history.filter(({ workOrder }) =>
-        mechanicIds.has(workOrder.id),
+      history = history.filter(
+        ({ history: record }) => record.mechanicId === profile?.id,
       );
     }
     if (user.role === "driver") {
@@ -50,13 +48,11 @@ export default function ServiceHistoryPage() {
           mechanic?.fullName.toLowerCase().includes(query),
       )
       .sort((left, right) =>
-        (right.workOrder.completedDate ?? "").localeCompare(
-          left.workOrder.completedDate ?? "",
-        ),
+        right.history.serviceDate.localeCompare(left.history.serviceDate),
       );
   }, [data, search, user]);
 
-  const columns: Array<TableColumn<WorkOrderOperationalView>> = [
+  const columns: Array<TableColumn<ServiceHistoryOperationalView>> = [
     {
       header: "Service",
       key: "service",
@@ -64,7 +60,7 @@ export default function ServiceHistoryPage() {
         <div className="primary-cell">
           <strong>{serviceType.name}</strong>
           <span>
-            {vehicle.fleetNumber} · {vehicle.plate}
+            {vehicle.fleetNumber} · {vehicle.plateNumber}
           </span>
         </div>
       ),
@@ -72,8 +68,7 @@ export default function ServiceHistoryPage() {
     {
       header: "Completed",
       key: "completed",
-      render: ({ workOrder }) =>
-        workOrder.completedDate ? formatDate(workOrder.completedDate) : "—",
+      render: ({ history }) => formatDate(history.serviceDate),
     },
     {
       header: "Mechanic",
@@ -83,7 +78,7 @@ export default function ServiceHistoryPage() {
     {
       header: "Service notes",
       key: "notes",
-      render: ({ workOrder }) => workOrder.serviceNotes || "No service notes",
+      render: ({ history }) => history.notes || "No service notes",
     },
   ];
 
@@ -116,7 +111,7 @@ export default function ServiceHistoryPage() {
           columns={columns}
           emptyDescription="Completed work appropriate to your current account will appear here."
           emptyTitle="No completed service"
-          getRowKey={({ workOrder }) => workOrder.id}
+          getRowKey={({ history }) => history.id}
           rows={rows}
         />
       )}

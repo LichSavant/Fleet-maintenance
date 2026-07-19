@@ -62,7 +62,7 @@ export default function MaintenanceSchedulesPage() {
         <div className="primary-cell">
           <strong>{serviceType.name}</strong>
           <span>
-            {vehicle.fleetNumber} · {vehicle.plate}
+            {vehicle.fleetNumber} · {vehicle.plateNumber}
           </span>
         </div>
       ),

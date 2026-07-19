@@ -27,7 +27,9 @@ export default function MechanicDashboardPage() {
         className="dashboard-metrics-grid"
       >
         <DashboardMetric
-          detail={dashboard.mechanicProfile?.specialty ?? "No linked profile"}
+          detail={
+            dashboard.mechanicProfile?.specialization ?? "No linked profile"
+          }
           label="Assigned work"
           value={dashboard.assignedWork.length}
         />
@@ -48,7 +50,7 @@ export default function MechanicDashboardPage() {
           emptyTitle="No assigned work"
           eyebrow="Work queue"
           items={dashboard.assignedWork.map((record) => ({
-            description: `${record.vehicle.plate} · scheduled ${formatDate(record.scheduledDate)}`,
+            description: `${record.vehicle.plateNumber} · scheduled ${formatDate(record.scheduledDate)}`,
             id: record.id,
             status: formatStatus(record.status),
             title: record.service,
@@ -61,10 +63,10 @@ export default function MechanicDashboardPage() {
           emptyTitle="No service history"
           eyebrow="Completed work"
           items={dashboard.recentServiceHistory.map((record) => ({
-            description: `${record.vehicle.plate} · ${record.vehicle.model}`,
+            description: `${record.vehicle.plateNumber} · ${record.vehicle.model}`,
             id: record.id,
-            meta: formatDate(record.completedDate),
-            status: formatStatus(record.status),
+            meta: formatDate(record.serviceDate),
+            status: "Completed",
             title: record.service,
             tone: "success",
           }))}
@@ -79,9 +81,9 @@ export default function MechanicDashboardPage() {
             description: notification.message,
             id: notification.id,
             meta: formatDate(notification.createdAt),
-            status: notification.read ? "Read" : "Unread",
+            status: notification.readAt ? "Read" : "Unread",
             title: notification.title,
-            tone: notification.read ? "neutral" : "info",
+            tone: notification.readAt ? "neutral" : "info",
           }))}
           title="Notifications"
         />

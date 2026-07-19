@@ -31,7 +31,7 @@ describe("dashboardService", () => {
         .length,
     );
     expect(dashboard.pendingWork).toBe(
-      MOCK_FLEET_DATA.maintenanceRecords.filter(
+      MOCK_FLEET_DATA.maintenanceWorkOrders.filter(
         (record) =>
           record.status !== "completed" && record.status !== "cancelled",
       ).length,
@@ -58,12 +58,12 @@ describe("dashboardService", () => {
     expect(dashboard.assignedWork.length).toBeGreaterThan(0);
     expect(
       dashboard.assignedWork.every(
-        (record) => record.mechanicProfileId === dashboard.mechanicProfile?.id,
+        (record) => record.assignedMechanicId === dashboard.mechanicProfile?.id,
       ),
     ).toBe(true);
     expect(
       dashboard.assignedWork.some(
-        (record) => record.mechanicProfileId === "mechanic-profile-ana",
+        (record) => record.assignedMechanicId === "mechanic-profile-ana",
       ),
     ).toBe(false);
   });
@@ -73,7 +73,7 @@ describe("dashboardService", () => {
     const dashboard = dashboardService.getDriverDashboard(user);
 
     expect(dashboard.driverProfile?.userId).toBe(user.id);
-    expect(dashboard.activeAssignment?.driverProfileId).toBe(
+    expect(dashboard.activeAssignment?.driverId).toBe(
       dashboard.driverProfile?.id,
     );
     expect(dashboard.assignedVehicle?.id).toBe(
@@ -81,8 +81,7 @@ describe("dashboardService", () => {
     );
     expect(
       dashboard.recentSubmissions.every(
-        (submission) =>
-          submission.driverProfileId === dashboard.driverProfile?.id,
+        (submission) => submission.driverId === dashboard.driverProfile?.id,
       ),
     ).toBe(true);
   });
@@ -93,11 +92,7 @@ describe("dashboardService", () => {
 
     expect(notifications.length).toBeGreaterThan(0);
     expect(
-      notifications.every(
-        (notification) =>
-          notification.userId === user.id ||
-          (!notification.userId && notification.role === user.role),
-      ),
+      notifications.every((notification) => notification.userId === user.id),
     ).toBe(true);
   });
 });

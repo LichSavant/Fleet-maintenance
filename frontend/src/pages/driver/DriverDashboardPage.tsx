@@ -29,12 +29,12 @@ export default function DriverDashboardPage() {
         <DashboardMetric
           detail={vehicle?.model ?? "No active assignment"}
           label="Assigned vehicle"
-          value={vehicle?.plate ?? "None"}
+          value={vehicle?.plateNumber ?? "None"}
         />
         <DashboardMetric
           detail="Recorded odometer"
           label="Mileage summary"
-          value={vehicle ? `${formatNumber(vehicle.mileage)} km` : "—"}
+          value={vehicle ? `${formatNumber(vehicle.currentMileage)} km` : "—"}
         />
         <DashboardMetric
           label="Maintenance reminders"
@@ -51,7 +51,7 @@ export default function DriverDashboardPage() {
           {vehicle ? (
             <div className="vehicle-summary">
               <div>
-                <strong>{vehicle.plate}</strong>
+                <strong>{vehicle.plateNumber}</strong>
                 <span>{vehicle.model}</span>
               </div>
               <StatusBadge tone={getStatusTone(vehicle.status)}>
@@ -67,8 +67,8 @@ export default function DriverDashboardPage() {
                   <dd>{vehicle.year}</dd>
                 </div>
                 <div>
-                  <dt>Health record</dt>
-                  <dd>{vehicle.health}%</dd>
+                  <dt>VIN</dt>
+                  <dd>{vehicle.vin}</dd>
                 </div>
               </dl>
             </div>
@@ -84,7 +84,7 @@ export default function DriverDashboardPage() {
           emptyTitle="No maintenance reminders"
           eyebrow="Service schedule"
           items={dashboard.maintenanceReminders.map((schedule) => ({
-            description: `${schedule.vehicle.plate} · due ${formatDate(schedule.dueDate)}`,
+            description: `${schedule.vehicle.plateNumber} · due ${formatDate(schedule.dueDate)}`,
             id: schedule.id,
             status: schedule.status,
             title: schedule.service,
@@ -97,10 +97,10 @@ export default function DriverDashboardPage() {
           emptyTitle="No mileage submissions"
           eyebrow="Mileage history"
           items={dashboard.recentSubmissions.map((submission) => ({
-            description: `${submission.vehicle.plate} · ${submission.notes}`,
+            description: `${submission.vehicle.plateNumber} · ${submission.notes}`,
             id: submission.id,
-            meta: formatDate(submission.submittedAt),
-            status: `${formatNumber(submission.mileage)} km`,
+            meta: formatDate(submission.logDate),
+            status: `${formatNumber(submission.odometerReading)} km`,
             title: "Odometer submission",
           }))}
           title="Recent submissions"
@@ -113,9 +113,9 @@ export default function DriverDashboardPage() {
             description: notification.message,
             id: notification.id,
             meta: formatDate(notification.createdAt),
-            status: notification.read ? "Read" : "Unread",
+            status: notification.readAt ? "Read" : "Unread",
             title: notification.title,
-            tone: notification.read ? "neutral" : "info",
+            tone: notification.readAt ? "neutral" : "info",
           }))}
           title="Notifications"
         />

@@ -23,6 +23,7 @@ export function ServiceTypeFormModal({
   const [values, setValues] = useState<ServiceTypeInput>({
     description: initialValues?.description ?? "",
     name: initialValues?.name ?? "",
+    recommendedIntervalKm: initialValues?.recommendedIntervalKm ?? 10000,
   });
   const [error, setError] = useState("");
   const [isSaving, setIsSaving] = useState(false);
@@ -31,8 +32,15 @@ export function ServiceTypeFormModal({
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setError("");
-    if (!values.name.trim() || !values.description.trim()) {
-      setError("Enter a service type name and description.");
+    if (
+      !values.name.trim() ||
+      !values.description.trim() ||
+      !Number.isInteger(values.recommendedIntervalKm) ||
+      values.recommendedIntervalKm <= 0
+    ) {
+      setError(
+        "Enter a service type name, description, and positive whole-kilometre interval.",
+      );
       return;
     }
     setIsSaving(true);
@@ -94,6 +102,24 @@ export function ServiceTypeFormModal({
               }))
             }
             value={values.description}
+          />
+        </FormField>
+        <FormField
+          id="service-type-interval"
+          label="Recommended interval (km)"
+          required
+        >
+          <Input
+            min="1"
+            onChange={(event) =>
+              setValues((current) => ({
+                ...current,
+                recommendedIntervalKm: Number(event.target.value),
+              }))
+            }
+            step="1"
+            type="number"
+            value={values.recommendedIntervalKm}
           />
         </FormField>
         {error && (

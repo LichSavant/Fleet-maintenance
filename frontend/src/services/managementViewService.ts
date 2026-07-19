@@ -1,4 +1,4 @@
-import type { FleetDataSource } from "../types/fleet";
+import type { FleetState } from "../types/fleet";
 import type {
   DriverManagementRecord,
   MechanicManagementRecord,
@@ -6,12 +6,12 @@ import type {
   VehicleManagementRecord,
 } from "../types/management";
 
-function getUser(data: FleetDataSource, userId: string) {
+function getUser(data: FleetState, userId: string) {
   return data.users.find((user) => user.id === userId);
 }
 
 export const managementViewService = {
-  getUsers(data: FleetDataSource): UserManagementRecord[] {
+  getUsers(data: FleetState): UserManagementRecord[] {
     return data.users.map((user) => {
       const driver = data.driverProfiles.find(
         (profile) => profile.userId === user.id,
@@ -25,7 +25,7 @@ export const managementViewService = {
       return {
         profileDetail:
           driver?.licenseNumber ??
-          mechanic?.specialty ??
+          mechanic?.specialization ??
           manager?.depot ??
           "Administrative account",
         user,
@@ -33,14 +33,13 @@ export const managementViewService = {
     });
   },
 
-  getDrivers(data: FleetDataSource): DriverManagementRecord[] {
+  getDrivers(data: FleetState): DriverManagementRecord[] {
     return data.driverProfiles.flatMap((profile) => {
       const user = getUser(data, profile.userId);
       if (!user) return [];
       const activeAssignment = data.assignments.find(
         (assignment) =>
-          assignment.driverProfileId === profile.id &&
-          assignment.status === "Active",
+          assignment.driverId === profile.id && assignment.status === "Active",
       );
       return [
         {
@@ -57,12 +56,12 @@ export const managementViewService = {
     });
   },
 
-  getMechanics(data: FleetDataSource): MechanicManagementRecord[] {
+  getMechanics(data: FleetState): MechanicManagementRecord[] {
     return data.mechanicProfiles.flatMap((profile) => {
       const user = getUser(data, profile.userId);
       if (!user) return [];
-      const work = data.maintenanceRecords.filter(
-        (record) => record.mechanicProfileId === profile.id,
+      const work = data.maintenanceWorkOrders.filter(
+        (record) => record.assignedMechanicId === profile.id,
       );
       return [
         {
@@ -79,22 +78,19 @@ export const managementViewService = {
     });
   },
 
-  getVehicles(data: FleetDataSource): VehicleManagementRecord[] {
+  getVehicles(data: FleetState): VehicleManagementRecord[] {
     return data.vehicles.map((vehicle) => {
       const assignment = data.assignments.find(
         (item) => item.vehicleId === vehicle.id && item.status === "Active",
       );
       const driverProfile = assignment
         ? data.driverProfiles.find(
-            (profile) => profile.id === assignment.driverProfileId,
+            (profile) => profile.id === assignment.driverId,
           )
         : undefined;
-      const completedDates = data.maintenanceRecords
-        .filter(
-          (record) =>
-            record.vehicleId === vehicle.id && Boolean(record.completedDate),
-        )
-        .map((record) => record.completedDate as string)
+      const completedDates = data.maintenanceHistory
+        .filter((record) => record.vehicleId === vehicle.id)
+        .map((record) => record.serviceDate)
         .sort((left, right) => right.localeCompare(left));
       const nextDates = data.maintenanceSchedules
         .filter(

@@ -11,7 +11,7 @@ import { useAuth } from "../../hooks/useAuth";
 import { useFleetData } from "../../hooks/useFleetData";
 import { fleetDataService } from "../../services/fleetDataService";
 import { sharedViewService } from "../../services/sharedViewService";
-import type { FleetNotification } from "../../types/fleet";
+import type { Notification } from "../../types/fleet";
 
 function formatNotificationDate(value: string) {
   return new Intl.DateTimeFormat(undefined, {
@@ -20,7 +20,7 @@ function formatNotificationDate(value: string) {
   }).format(new Date(value));
 }
 
-function getNotificationTone(notification: FleetNotification): StatusTone {
+function getNotificationTone(notification: Notification): StatusTone {
   if (notification.type === "Reminder") return "warning";
   if (notification.type === "Maintenance") return "info";
   if (notification.type === "Assignment") return "success";
@@ -45,7 +45,7 @@ export default function NotificationsPage() {
 
   const notifications = sharedViewService.getNotifications(data, user);
   const unreadCount = notifications.filter(
-    (notification) => !notification.read,
+    (notification) => !notification.readAt,
   ).length;
 
   return (
@@ -76,15 +76,15 @@ export default function NotificationsPage() {
             {notifications.map((notification) => (
               <article
                 className={
-                  notification.read
+                  notification.readAt
                     ? "notification-row"
                     : "notification-row notification-row-unread"
                 }
                 key={notification.id}
               >
                 <span
-                  aria-label={notification.read ? "Read" : "Unread"}
-                  className={notification.read ? "read-dot" : "unread-dot"}
+                  aria-label={notification.readAt ? "Read" : "Unread"}
+                  className={notification.readAt ? "read-dot" : "unread-dot"}
                 />
                 <div className="notification-row-content">
                   <div className="notification-row-heading">
@@ -100,10 +100,10 @@ export default function NotificationsPage() {
                   </div>
                   <p>{notification.message}</p>
                   <div className="notification-row-actions">
-                    <Link className="text-link" to={notification.destination}>
+                    <Link className="text-link" to={notification.relatedRoute}>
                       Open related page
                     </Link>
-                    {!notification.read && (
+                    {!notification.readAt && (
                       <Button
                         onClick={() =>
                           fleetDataService.markNotificationRead(

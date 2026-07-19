@@ -54,7 +54,9 @@ export default function DriversPage() {
             record.user.fullName.toLowerCase().includes(query) ||
             record.user.email.toLowerCase().includes(query) ||
             record.profile.licenseNumber.toLowerCase().includes(query) ||
-            record.assignedVehicle?.plate.toLowerCase().includes(query)) &&
+            record.assignedVehicle?.plateNumber
+              .toLowerCase()
+              .includes(query)) &&
           (status === "all" || record.user.status === status) &&
           (assignment === "all" ||
             (assignment === "assigned" && Boolean(record.activeAssignment)) ||
@@ -93,7 +95,7 @@ export default function DriversPage() {
       key: "vehicle",
       render: (record) =>
         record.assignedVehicle
-          ? `${record.assignedVehicle.fleetNumber} · ${record.assignedVehicle.plate}`
+          ? `${record.assignedVehicle.fleetNumber} · ${record.assignedVehicle.plateNumber}`
           : "Not assigned",
     },
     {
@@ -291,7 +293,7 @@ export default function DriversPage() {
                 {
                   label: "Assigned vehicle",
                   value: viewing.assignedVehicle
-                    ? `${viewing.assignedVehicle.fleetNumber} · ${viewing.assignedVehicle.plate}`
+                    ? `${viewing.assignedVehicle.fleetNumber} · ${viewing.assignedVehicle.plateNumber}`
                     : "Not assigned",
                 },
                 { label: "Account status", value: viewing.user.status },

@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
 
-import { fleetDataService } from "./fleetDataService";
+import { FLEET_STORAGE_KEYS, fleetDataService } from "./fleetDataService";
 
 describe("fleetDataService", () => {
   beforeEach(() => {
@@ -28,7 +28,7 @@ describe("fleetDataService", () => {
     const user = await fleetDataService.createMechanic({
       email: "new.mechanic@forgefleet.demo",
       fullName: "New Mechanic",
-      specialty: "Hydraulic systems",
+      specialization: "Hydraulic systems",
     });
     const profile = fleetDataService
       .getSnapshot()
@@ -36,7 +36,7 @@ describe("fleetDataService", () => {
 
     expect(user).toMatchObject({ role: "mechanic", status: "Active" });
     expect(profile).toMatchObject({
-      specialty: "Hydraulic systems",
+      specialization: "Hydraulic systems",
       status: "Active",
       userId: user.id,
     });
@@ -143,13 +143,14 @@ describe("fleetDataService", () => {
   it("validates vehicle uniqueness and relationship protections", async () => {
     await expect(
       fleetDataService.createVehicle({
+        currentMileage: 0,
         fleetNumber: "FLT-2048",
-        manufacturer: "Test",
-        mileage: 0,
+        make: "Test",
         model: "Duplicate",
-        plate: "NEW 1000",
+        plateNumber: "NEW 1000",
         status: "Active",
         type: "Service Van",
+        vin: "TESTVIN0000000001",
         year: 2026,
       }),
     ).rejects.toMatchObject({
@@ -167,25 +168,27 @@ describe("fleetDataService", () => {
       .vehicles.find((item) => item.id === "vehicle-axiom-2048");
     await expect(
       fleetDataService.updateVehicle("vehicle-axiom-2048", {
+        currentMileage: linkedVehicle?.currentMileage ?? 0,
         fleetNumber: linkedVehicle?.fleetNumber ?? "",
-        manufacturer: linkedVehicle?.manufacturer ?? "",
-        mileage: linkedVehicle?.mileage ?? 0,
+        make: linkedVehicle?.make ?? "",
         model: linkedVehicle?.model ?? "",
-        plate: linkedVehicle?.plate ?? "",
+        plateNumber: linkedVehicle?.plateNumber ?? "",
         status: "Out of Service",
         type: linkedVehicle?.type ?? "",
+        vin: linkedVehicle?.vin ?? "",
         year: linkedVehicle?.year ?? 2026,
       }),
     ).rejects.toMatchObject({ code: "linked_record" });
 
     const vehicle = await fleetDataService.createVehicle({
+      currentMileage: 250,
       fleetNumber: "FLT-9001",
-      manufacturer: "Forge Motors",
-      mileage: 250,
+      make: "Forge Motors",
       model: "Workshop Runner",
-      plate: "FF 9001",
+      plateNumber: "FF 9001",
       status: "Inspection",
       type: "Service Van",
+      vin: "TESTVIN0000009001",
       year: 2026,
     });
     await fleetDataService.deactivateVehicle(vehicle.id);
@@ -195,5 +198,132 @@ describe("fleetDataService", () => {
         .getSnapshot()
         .vehicles.find((item) => item.id === vehicle.id)?.status,
     ).toBe("Out of Service");
+  });
+
+  it("migrates valid v2 browser data into the canonical v3 state", () => {
+    const legacyData = {
+      assignments: [
+        {
+          driverProfileId: "legacy-driver-profile",
+          endDate: null,
+          id: "legacy-assignment",
+          startDate: "2026-01-01",
+          status: "Active",
+          vehicleId: "legacy-vehicle",
+        },
+      ],
+      driverProfiles: [
+        {
+          id: "legacy-driver-profile",
+          licenseNumber: "LEGACY-LICENSE",
+          status: "Assigned",
+          userId: "legacy-driver-user",
+        },
+      ],
+      maintenanceRecords: [],
+      maintenanceSchedules: [],
+      managerProfiles: [],
+      mechanicProfiles: [],
+      mileageSubmissions: [
+        {
+          driverProfileId: "legacy-driver-profile",
+          id: "legacy-mileage",
+          mileage: 12000,
+          notes: "Migrated reading",
+          submittedAt: "2026-07-01T12:00:00Z",
+          vehicleId: "legacy-vehicle",
+        },
+      ],
+      notifications: [
+        {
+          createdAt: "2026-07-01T12:00:00Z",
+          destination: "/driver/mileage",
+          id: "legacy-notification",
+          message: "Mileage recorded.",
+          read: false,
+          title: "Mileage update",
+          type: "Mileage",
+          userId: "legacy-driver-user",
+        },
+      ],
+      serviceTypes: [
+        {
+          active: true,
+          description: "Legacy service",
+          id: "legacy-service",
+          name: "Legacy service",
+        },
+      ],
+      systemActivity: [
+        {
+          action: "Submitted mileage",
+          entityLabel: "Legacy vehicle",
+          id: "legacy-audit",
+          occurredAt: "2026-07-01T12:00:00Z",
+          userId: "legacy-driver-user",
+        },
+      ],
+      users: [
+        {
+          email: "legacy.driver@example.com",
+          fullName: "Legacy Driver",
+          id: "legacy-driver-user",
+          role: "driver",
+          status: "Active",
+        },
+      ],
+      vehicles: [
+        {
+          fleetNumber: "LEG-001",
+          health: 90,
+          id: "legacy-vehicle",
+          manufacturer: "Legacy Motors",
+          mileage: 12000,
+          model: "Runner",
+          plate: "LEG 001",
+          status: "Active",
+          type: "Service Van",
+          year: 2020,
+        },
+      ],
+    };
+    window.localStorage.setItem(
+      FLEET_STORAGE_KEYS.legacy,
+      JSON.stringify({ data: legacyData, version: 2 }),
+    );
+
+    const migrated = fleetDataService.getSnapshot();
+
+    expect(migrated.driverProfiles[0]).toMatchObject({
+      employeeNumber: "DRV-0001",
+      userId: "legacy-driver-user",
+    });
+    expect(migrated.vehicles[0]).toMatchObject({
+      currentMileage: 12000,
+      make: "Legacy Motors",
+      plateNumber: "LEG 001",
+    });
+    expect(migrated.mileageLogs[0]).toMatchObject({
+      driverId: "legacy-driver-profile",
+      odometerReading: 12000,
+    });
+    expect(
+      window.localStorage.getItem(FLEET_STORAGE_KEYS.current),
+    ).not.toBeNull();
+    expect(window.localStorage.getItem(FLEET_STORAGE_KEYS.legacy)).toBeNull();
+  });
+
+  it("fails closed to seeded data when persisted relationships are malformed", () => {
+    const malformed = structuredClone(fleetDataService.getSnapshot());
+    malformed.assignments[0].driverId = "missing-driver-profile";
+    window.localStorage.setItem(
+      FLEET_STORAGE_KEYS.current,
+      JSON.stringify({ data: malformed, version: FLEET_STORAGE_KEYS.version }),
+    );
+
+    const recovered = fleetDataService.getSnapshot();
+
+    expect(recovered.assignments[0].driverId).toBe("driver-profile-carlo");
+    expect(window.localStorage.getItem(FLEET_STORAGE_KEYS.current)).toBeNull();
   });
 });

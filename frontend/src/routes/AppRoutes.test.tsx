@@ -8,6 +8,7 @@ import { DEVELOPMENT_ACCOUNTS } from "../data/mockAccounts";
 import { authService } from "../services/authService";
 import {
   FLEET_DATA_STORAGE_KEY,
+  FLEET_STORAGE_KEYS,
   fleetDataService,
 } from "../services/fleetDataService";
 import { ROLE_NAVIGATION } from "./roleNavigation";
@@ -59,7 +60,7 @@ describe("AppRoutes", () => {
     driver.status = "Inactive";
     window.localStorage.setItem(
       FLEET_DATA_STORAGE_KEY,
-      JSON.stringify({ data, version: 2 }),
+      JSON.stringify({ data, version: FLEET_STORAGE_KEYS.version }),
     );
 
     renderRoutes("/driver/dashboard");

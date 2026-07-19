@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from "react";
 
-import type { FleetDataSource } from "../../types/fleet";
+import type { FleetState } from "../../types/fleet";
 import type { AssignmentInput } from "../../types/operations";
 import { operationsViewService } from "../../services/operationsViewService";
 import { Button } from "../ui/Button";
@@ -10,7 +10,7 @@ import { Modal } from "../ui/Modal";
 import { Select } from "../ui/Select";
 
 interface AssignmentFormModalProps {
-  data: FleetDataSource;
+  data: FleetState;
   isOpen: boolean;
   onClose: () => void;
   onSubmit: (input: AssignmentInput) => Promise<void>;
@@ -27,7 +27,7 @@ export function AssignmentFormModal({
   onSubmit,
 }: AssignmentFormModalProps) {
   const [values, setValues] = useState<AssignmentInput>({
-    driverProfileId: "",
+    driverId: "",
     startDate: getToday(),
     vehicleId: "",
   });
@@ -39,7 +39,7 @@ export function AssignmentFormModal({
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setError("");
-    if (!values.driverProfileId || !values.vehicleId || !values.startDate) {
+    if (!values.driverId || !values.vehicleId || !values.startDate) {
       setError("Select a driver, vehicle, and assignment start date.");
       return;
     }
@@ -90,10 +90,10 @@ export function AssignmentFormModal({
             onChange={(event) =>
               setValues((current) => ({
                 ...current,
-                driverProfileId: event.target.value,
+                driverId: event.target.value,
               }))
             }
-            value={values.driverProfileId}
+            value={values.driverId}
           >
             <option value="">Select a driver</option>
             {drivers.map(({ profile, user }) => (

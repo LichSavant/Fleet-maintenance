@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from "react";
 
-import type { FleetDataSource } from "../../types/fleet";
+import type { FleetState } from "../../types/fleet";
 import type { MaintenanceScheduleInput } from "../../types/operations";
 import { Button } from "../ui/Button";
 import { FormField } from "../ui/FormField";
@@ -10,7 +10,7 @@ import { Select } from "../ui/Select";
 import { TextArea } from "../ui/TextArea";
 
 interface ScheduleFormModalProps {
-  data: FleetDataSource;
+  data: FleetState;
   isOpen: boolean;
   onClose: () => void;
   onSubmit: (input: MaintenanceScheduleInput) => Promise<void>;
@@ -120,7 +120,7 @@ export function ScheduleFormModal({
             >
               <option value="">Select a service</option>
               {data.serviceTypes
-                .filter((serviceType) => serviceType.active)
+                .filter((serviceType) => serviceType.status === "Active")
                 .map((serviceType) => (
                   <option key={serviceType.id} value={serviceType.id}>
                     {serviceType.name}
@@ -145,15 +145,15 @@ export function ScheduleFormModal({
               onChange={(event) =>
                 setValues((current) => ({
                   ...current,
-                  mechanicProfileId: event.target.value || undefined,
+                  assignedMechanicId: event.target.value || undefined,
                 }))
               }
-              value={values.mechanicProfileId ?? ""}
+              value={values.assignedMechanicId ?? ""}
             >
               <option value="">Assign later</option>
               {mechanics.map(({ profile, user }) => (
                 <option key={profile.id} value={profile.id}>
-                  {user.fullName} · {profile.specialty}
+                  {user.fullName} · {profile.specialization}
                 </option>
               ))}
             </Select>

@@ -23,13 +23,14 @@ export interface VehicleFormModalProps {
 type VehicleFormErrors = Partial<Record<keyof VehicleInput, string>>;
 
 const EMPTY_VEHICLE: VehicleInput = {
+  currentMileage: 0,
   fleetNumber: "",
-  manufacturer: "",
-  mileage: 0,
+  make: "",
   model: "",
-  plate: "",
+  plateNumber: "",
   status: "Active",
   type: "",
+  vin: "",
   year: new Date().getFullYear(),
 };
 
@@ -60,8 +61,9 @@ export function VehicleFormModal({
     const nextErrors: VehicleFormErrors = {};
     for (const field of [
       "fleetNumber",
-      "plate",
-      "manufacturer",
+      "plateNumber",
+      "vin",
+      "make",
       "model",
       "type",
     ] as const) {
@@ -71,7 +73,9 @@ export function VehicleFormModal({
     if (values.year < 1980 || values.year > new Date().getFullYear() + 1) {
       nextErrors.year = "Enter a year between 1980 and next year.";
     }
-    if (values.mileage < 0) nextErrors.mileage = "Mileage cannot be negative.";
+    if (!Number.isFinite(values.currentMileage) || values.currentMileage < 0) {
+      nextErrors.currentMileage = "Mileage cannot be negative.";
+    }
     setErrors(nextErrors);
     setFormError("");
     if (Object.keys(nextErrors).length > 0) return;
@@ -132,25 +136,31 @@ export function VehicleFormModal({
             />
           </FormField>
           <FormField
-            error={errors.plate}
+            error={errors.plateNumber}
             id="vehicle-plate"
             label="Plate number"
             required
           >
             <Input
-              onChange={(event) => update("plate", event.target.value)}
-              value={values.plate}
+              onChange={(event) => update("plateNumber", event.target.value)}
+              value={values.plateNumber}
             />
           </FormField>
           <FormField
-            error={errors.manufacturer}
+            error={errors.make}
             id="vehicle-make"
             label="Make"
             required
           >
             <Input
-              onChange={(event) => update("manufacturer", event.target.value)}
-              value={values.manufacturer}
+              onChange={(event) => update("make", event.target.value)}
+              value={values.make}
+            />
+          </FormField>
+          <FormField error={errors.vin} id="vehicle-vin" label="VIN" required>
+            <Input
+              onChange={(event) => update("vin", event.target.value)}
+              value={values.vin}
             />
           </FormField>
           <FormField
@@ -201,7 +211,7 @@ export function VehicleFormModal({
             </Select>
           </FormField>
           <FormField
-            error={errors.mileage}
+            error={errors.currentMileage}
             id="vehicle-mileage"
             label="Mileage"
             required
@@ -209,10 +219,10 @@ export function VehicleFormModal({
             <Input
               min="0"
               onChange={(event) =>
-                update("mileage", Number(event.target.value))
+                update("currentMileage", Number(event.target.value))
               }
               type="number"
-              value={values.mileage}
+              value={values.currentMileage}
             />
           </FormField>
         </div>

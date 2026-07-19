@@ -12,7 +12,7 @@ describe("shared frontend features", () => {
   it("associates mileage with the signed-in driver and assigned vehicle", async () => {
     const entry = await fleetDataService.submitMileage(
       {
-        mileage: 184500,
+        odometerReading: 184500,
         notes: "End-of-shift reading",
         submissionDate: "2026-07-19",
       },
@@ -21,20 +21,20 @@ describe("shared frontend features", () => {
     const data = fleetDataService.getSnapshot();
 
     expect(entry).toMatchObject({
-      driverProfileId: "driver-profile-carlo",
-      mileage: 184500,
+      driverId: "driver-profile-carlo",
+      odometerReading: 184500,
       vehicleId: "vehicle-axiom-2048",
     });
     expect(
       data.vehicles.find((vehicle) => vehicle.id === "vehicle-axiom-2048")
-        ?.mileage,
+        ?.currentMileage,
     ).toBe(184500);
     expect(
       data.notifications.some(
         (notification) =>
           notification.userId === "demo-user-driver" &&
           notification.type === "Mileage" &&
-          !notification.read,
+          !notification.readAt,
       ),
     ).toBe(true);
   });
@@ -42,21 +42,33 @@ describe("shared frontend features", () => {
   it("rejects lower odometers, invalid dates, and drivers without assignments", async () => {
     await expect(
       fleetDataService.submitMileage(
-        { mileage: 184219, notes: "", submissionDate: "2026-07-19" },
+        {
+          odometerReading: 184219,
+          notes: "",
+          submissionDate: "2026-07-19",
+        },
         "demo-user-driver",
       ),
     ).rejects.toMatchObject({ code: "invalid_mileage" });
 
     await expect(
       fleetDataService.submitMileage(
-        { mileage: 184500, notes: "", submissionDate: "2026-07-13" },
+        {
+          odometerReading: 184500,
+          notes: "",
+          submissionDate: "2026-07-13",
+        },
         "demo-user-driver",
       ),
     ).rejects.toMatchObject({ code: "invalid_date" });
 
     await expect(
       fleetDataService.submitMileage(
-        { mileage: 50000, notes: "", submissionDate: "2026-07-19" },
+        {
+          odometerReading: 50000,
+          notes: "",
+          submissionDate: "2026-07-19",
+        },
         "fleet-user-driver-maya",
       ),
     ).rejects.toMatchObject({ code: "no_assignment" });
@@ -65,7 +77,7 @@ describe("shared frontend features", () => {
   it("generates notifications from assignments, schedules, and maintenance completion", async () => {
     await fleetDataService.createAssignment(
       {
-        driverProfileId: "driver-profile-maya",
+        driverId: "driver-profile-maya",
         startDate: "2026-07-19",
         vehicleId: "vehicle-nova-7710",
       },
@@ -74,7 +86,7 @@ describe("shared frontend features", () => {
     await fleetDataService.createMaintenanceSchedule(
       {
         dueDate: "2026-08-20",
-        mechanicProfileId: "mechanic-profile-noel",
+        assignedMechanicId: "mechanic-profile-noel",
         notes: "Plan the service bay.",
         serviceTypeId: "service-type-brakes",
         vehicleId: "vehicle-axiom-2048",
@@ -134,14 +146,14 @@ describe("shared frontend features", () => {
       role: "driver",
     });
 
-    expect(driverNotifications.every((notification) => notification.read)).toBe(
-      true,
-    );
+    expect(
+      driverNotifications.every((notification) => notification.readAt),
+    ).toBe(true);
     expect(
       data.notifications.find(
         (notification) => notification.id === "notification-noel-priority",
-      )?.read,
-    ).toBe(false);
+      )?.readAt,
+    ).toBeNull();
   });
 
   it("updates only editable profile fields and rejects duplicate emails", async () => {
@@ -177,7 +189,7 @@ describe("shared frontend features", () => {
     ).toBe(data.vehicles.length);
     expect(
       reports.maintenanceStatus.reduce((total, item) => total + item.value, 0),
-    ).toBe(data.maintenanceRecords.length);
+    ).toBe(data.maintenanceWorkOrders.length);
     expect(
       reports.assignmentSummary.reduce((total, item) => total + item.value, 0),
     ).toBe(data.assignments.length);
@@ -186,7 +198,7 @@ describe("shared frontend features", () => {
     ).toBe(data.users.length);
     expect(reports.mileageSummary).toContainEqual({
       label: "Submissions",
-      value: data.mileageSubmissions.length,
+      value: data.mileageLogs.length,
     });
   });
 });

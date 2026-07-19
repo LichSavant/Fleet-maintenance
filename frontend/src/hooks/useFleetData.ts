@@ -4,10 +4,10 @@ import {
   FLEET_DATA_CHANGED_EVENT,
   fleetDataService,
 } from "../services/fleetDataService";
-import type { FleetDataSource } from "../types/fleet";
+import type { FleetState } from "../types/fleet";
 
 export function useFleetData() {
-  const [data, setData] = useState<FleetDataSource | null>(null);
+  const [data, setData] = useState<FleetState | null>(null);
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(true);
 
