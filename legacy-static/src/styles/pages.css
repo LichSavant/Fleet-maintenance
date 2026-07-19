@@ -1,0 +1,639 @@
+.status-page {
+  display: grid;
+  min-height: 100vh;
+  padding: var(--space-6);
+  place-items: center;
+  align-content: center;
+  background: var(--color-canvas);
+}
+
+.status-page > p {
+  margin: var(--space-4) 0 0;
+  color: var(--color-text-muted);
+}
+
+.status-card {
+  width: min(100%, 38rem);
+  padding: clamp(var(--space-6), 5vw, var(--space-10));
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-md);
+}
+
+.status-card h1 {
+  margin-bottom: var(--space-4);
+  font-size: clamp(2rem, 5vw, 3rem);
+}
+
+.status-card p:not(.eyebrow) {
+  margin-bottom: var(--space-6);
+  color: var(--color-text-muted);
+}
+
+.landing-hero {
+  display: grid;
+  min-height: 36rem;
+  grid-template-columns: minmax(0, 1.35fr) minmax(20rem, 0.65fr);
+  gap: clamp(var(--space-8), 7vw, var(--space-16));
+  align-items: center;
+  padding: clamp(var(--space-10), 8vw, 7rem)
+    max(var(--space-6), calc((100vw - var(--content-width)) / 2));
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-background);
+}
+
+.landing-hero-copy {
+  max-width: 50rem;
+}
+
+.landing-hero-copy > .status-badge {
+  margin-bottom: var(--space-8);
+}
+
+.landing-hero h1 {
+  max-width: 12ch;
+  margin-bottom: var(--space-5);
+  font-size: clamp(3rem, 7vw, 6rem);
+  letter-spacing: -0.065em;
+}
+
+.landing-hero-copy > p:not(.eyebrow) {
+  max-width: 42rem;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-lg);
+}
+
+.landing-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin-top: var(--space-8);
+}
+
+.landing-security-note {
+  padding: clamp(var(--space-6), 4vw, var(--space-10));
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-xl);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-md);
+}
+
+.landing-security-note h2 {
+  font-size: var(--font-size-2xl);
+}
+
+.landing-security-note p:last-child {
+  margin-bottom: 0;
+  color: var(--color-text-muted);
+}
+
+.landing-roles {
+  width: min(100%, calc(var(--content-width) + (2 * var(--space-6))));
+  margin: 0 auto;
+  padding: clamp(var(--space-10), 7vw, var(--space-16)) var(--space-6);
+}
+
+.section-heading {
+  max-width: 42rem;
+  margin-bottom: var(--space-8);
+}
+
+.section-heading h2 {
+  margin: 0;
+  font-size: clamp(var(--font-size-2xl), 4vw, var(--font-size-3xl));
+}
+
+.role-summary-grid,
+.dashboard-welcome-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-5);
+}
+
+.role-summary-grid .card p {
+  margin: 0;
+  color: var(--color-text-muted);
+}
+
+.role-dashboard-page {
+  display: grid;
+  gap: var(--space-6);
+}
+
+.management-page {
+  display: grid;
+  gap: var(--space-5);
+}
+
+.management-card {
+  display: grid;
+  gap: var(--space-5);
+}
+
+.management-toolbar {
+  display: grid;
+  grid-template-columns: minmax(15rem, 2fr) repeat(3, minmax(9rem, 1fr));
+  gap: var(--space-3);
+  align-items: end;
+}
+
+.toolbar-field {
+  display: grid;
+  gap: var(--space-2);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+}
+
+.management-feedback {
+  padding: var(--space-3) var(--space-4);
+  margin: 0;
+  border: 1px solid;
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-sm);
+}
+
+.management-feedback-success {
+  border-color: rgb(61 179 126 / 35%);
+  background: rgb(61 179 126 / 9%);
+  color: var(--color-success);
+}
+
+.management-feedback-error {
+  border-color: rgb(224 91 91 / 35%);
+  background: rgb(224 91 91 / 9%);
+  color: var(--color-danger);
+}
+
+.management-loading {
+  display: flex;
+  min-height: 15rem;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-3);
+  color: var(--color-text-muted);
+}
+
+.management-loading p {
+  margin: 0;
+}
+
+.primary-cell {
+  display: grid;
+  min-width: 11rem;
+}
+
+.primary-cell span {
+  color: var(--color-text-soft);
+  font-size: var(--font-size-xs);
+}
+
+.table-muted {
+  color: var(--color-text-soft);
+  font-size: var(--font-size-sm);
+}
+
+.record-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  min-width: max-content;
+}
+
+.record-details {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-4);
+  margin: 0;
+}
+
+.record-details > div {
+  padding: var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: #171b1f;
+}
+
+.record-details dt {
+  color: var(--color-text-soft);
+  font-size: var(--font-size-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.record-details dd {
+  margin: var(--space-2) 0 0;
+  overflow-wrap: anywhere;
+  font-weight: var(--font-weight-semibold);
+}
+
+.management-form {
+  display: grid;
+  gap: var(--space-5);
+}
+
+.dashboard-metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+  gap: var(--space-4);
+}
+
+.dashboard-metric {
+  display: grid;
+  min-height: 10rem;
+  align-content: space-between;
+  gap: var(--space-2);
+}
+
+.dashboard-metric p {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+}
+
+.dashboard-metric > strong {
+  overflow-wrap: anywhere;
+  font-size: clamp(var(--font-size-2xl), 4vw, 2.25rem);
+  line-height: var(--line-height-tight);
+  letter-spacing: -0.04em;
+}
+
+.dashboard-metric > span {
+  color: var(--color-text-soft);
+  font-size: var(--font-size-xs);
+}
+
+.dashboard-sections-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-5);
+  align-items: start;
+}
+
+.dashboard-section-wide {
+  grid-column: 1 / -1;
+}
+
+.dashboard-list {
+  display: grid;
+}
+
+.dashboard-list-item {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: var(--space-4) 0;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.dashboard-list-item:first-child {
+  padding-top: 0;
+}
+
+.dashboard-list-item:last-child {
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+
+.dashboard-list-item > div {
+  min-width: 0;
+}
+
+.dashboard-list-item strong {
+  display: block;
+  overflow-wrap: anywhere;
+  font-size: var(--font-size-sm);
+}
+
+.dashboard-list-item p {
+  margin: var(--space-1) 0 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+}
+
+.dashboard-list-item div > span {
+  display: block;
+  margin-top: var(--space-1);
+  color: var(--color-text-soft);
+  font-size: var(--font-size-xs);
+}
+
+.dashboard-list-item > .status-badge {
+  flex: 0 0 auto;
+}
+
+.vehicle-summary {
+  display: grid;
+  gap: var(--space-5);
+}
+
+.vehicle-summary > div:first-child {
+  display: grid;
+}
+
+.vehicle-summary > div:first-child strong {
+  font-size: var(--font-size-2xl);
+}
+
+.vehicle-summary > div:first-child span {
+  color: var(--color-text-muted);
+}
+
+.vehicle-summary dl {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-4);
+  margin: 0;
+}
+
+.vehicle-summary dl > div {
+  padding: var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: #171b1f;
+}
+
+.vehicle-summary dt {
+  color: var(--color-text-soft);
+  font-size: var(--font-size-xs);
+}
+
+.vehicle-summary dd {
+  margin: var(--space-1) 0 0;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+}
+
+.session-details {
+  display: grid;
+  gap: var(--space-4);
+  margin: 0;
+}
+
+.session-details > div {
+  display: grid;
+  grid-template-columns: 6rem 1fr;
+  gap: var(--space-4);
+  align-items: center;
+}
+
+.session-details dt {
+  color: var(--color-text-soft);
+  font-size: var(--font-size-sm);
+}
+
+.session-details dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.mileage-layout,
+.profile-layout {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-5);
+  align-items: start;
+}
+
+.mileage-form,
+.profile-form {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.assigned-vehicle-card {
+  display: grid;
+  gap: var(--space-5);
+}
+
+.assigned-vehicle-card > div:first-child {
+  display: grid;
+}
+
+.assigned-vehicle-card > div:first-child strong {
+  font-size: var(--font-size-2xl);
+}
+
+.assigned-vehicle-card > div:first-child span {
+  color: var(--color-text-muted);
+}
+
+.assigned-vehicle-card > .status-badge {
+  justify-self: start;
+}
+
+.assigned-vehicle-card dl,
+.profile-summary {
+  display: grid;
+  gap: var(--space-3);
+  margin: 0;
+}
+
+.assigned-vehicle-card dl > div,
+.profile-summary > div {
+  display: grid;
+  grid-template-columns: minmax(7rem, 0.7fr) 1fr;
+  gap: var(--space-4);
+  align-items: center;
+  padding: var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: #171b1f;
+}
+
+.assigned-vehicle-card dt,
+.profile-summary dt {
+  color: var(--color-text-soft);
+  font-size: var(--font-size-xs);
+}
+
+.assigned-vehicle-card dd,
+.profile-summary dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+  font-weight: var(--font-weight-semibold);
+}
+
+.notification-center-card {
+  padding: 0;
+  overflow: hidden;
+}
+
+.notification-center-list {
+  display: grid;
+}
+
+.notification-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: var(--space-4);
+  padding: var(--space-5);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.notification-row:last-child {
+  border-bottom: 0;
+}
+
+.notification-row-unread {
+  background: rgb(211 161 65 / 5%);
+}
+
+.notification-row > span {
+  width: 0.55rem;
+  height: 0.55rem;
+  margin-top: 0.45rem;
+  border-radius: var(--radius-pill);
+}
+
+.notification-row-content,
+.notification-row-heading > div {
+  display: grid;
+  gap: var(--space-1);
+}
+
+.notification-row-heading,
+.notification-row-actions {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-4);
+}
+
+.notification-row-heading span {
+  color: var(--color-text-soft);
+  font-size: var(--font-size-xs);
+}
+
+.notification-row-content > p {
+  margin: var(--space-2) 0;
+  color: var(--color-text-muted);
+}
+
+.notification-row-actions {
+  align-items: center;
+}
+
+.reports-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-5);
+  align-items: start;
+}
+
+.report-card:last-child {
+  grid-column: 1 / -1;
+}
+
+.report-list {
+  display: grid;
+  gap: var(--space-4);
+  margin: 0;
+}
+
+.report-list > div {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.report-value-row {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-4);
+}
+
+.report-value-row dt {
+  color: var(--color-text-muted);
+}
+
+.report-value-row dd {
+  margin: 0;
+  font-weight: var(--font-weight-bold);
+}
+
+.report-list > div::after {
+  content: "";
+  height: 0.35rem;
+  margin-top: -0.35rem;
+  border-radius: var(--radius-pill);
+  background: var(--color-border);
+}
+
+.report-meter {
+  position: relative;
+  z-index: 1;
+  display: block;
+  height: 0.35rem;
+  border-radius: var(--radius-pill);
+  background: var(--color-accent);
+}
+
+@media (max-width: 64rem) {
+  .landing-hero {
+    grid-template-columns: 1fr;
+  }
+
+  .management-toolbar {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 48rem) {
+  .management-toolbar,
+  .record-details {
+    grid-template-columns: 1fr;
+  }
+
+  .record-actions {
+    justify-content: flex-start;
+  }
+
+  .landing-hero {
+    min-height: auto;
+    padding: var(--space-10) var(--space-5);
+  }
+
+  .landing-hero h1 {
+    font-size: clamp(2.75rem, 14vw, 4rem);
+  }
+
+  .landing-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .role-summary-grid,
+  .dashboard-welcome-grid,
+  .dashboard-sections-grid,
+  .mileage-layout,
+  .profile-layout,
+  .reports-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .dashboard-section-wide {
+    grid-column: auto;
+  }
+
+  .report-card:last-child {
+    grid-column: auto;
+  }
+
+  .notification-row-heading,
+  .notification-row-actions {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .vehicle-summary dl {
+    grid-template-columns: 1fr;
+  }
+
+  .dashboard-list-item {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
