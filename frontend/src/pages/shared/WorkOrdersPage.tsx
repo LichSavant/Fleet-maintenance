@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 
+import { ActiveFilters } from "../../components/common/ActiveFilters";
 import { AssignMechanicModal } from "../../components/common/AssignMechanicModal";
 import { ErrorState } from "../../components/common/ErrorState";
 import { ManagementLoadingState } from "../../components/common/ManagementLoadingState";
@@ -9,6 +10,7 @@ import { ServiceNotesModal } from "../../components/common/ServiceNotesModal";
 import { WorkOrderFormModal } from "../../components/common/WorkOrderFormModal";
 import { Button } from "../../components/ui/Button";
 import { ConfirmDialog } from "../../components/ui/ConfirmDialog";
+import { Input } from "../../components/ui/Input";
 import { SearchInput } from "../../components/ui/SearchInput";
 import { Select } from "../../components/ui/Select";
 import { StatusBadge } from "../../components/ui/StatusBadge";
@@ -20,6 +22,7 @@ import {
   operationsViewService,
   type WorkOrderOperationalView,
 } from "../../services/operationsViewService";
+import { recordFilterService } from "../../services/recordFilterService";
 import type { WorkOrderStatus } from "../../types/fleet";
 import { formatDate } from "../../utils/formatDate";
 import { formatStatus } from "../../utils/formatStatus";
@@ -35,6 +38,8 @@ export default function WorkOrdersPage() {
   const { data, error, isLoading, reload } = useFleetData();
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState<WorkOrderStatus | "all">("all");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [viewing, setViewing] = useState<WorkOrderOperationalView | null>(null);
   const [assigning, setAssigning] = useState<WorkOrderOperationalView | null>(
@@ -57,22 +62,26 @@ export default function WorkOrdersPage() {
       user.role === "mechanic"
         ? operationsViewService.getWorkOrdersForMechanic(data, user.id)
         : operationsViewService.getWorkOrders(data);
-    const query = search.trim().toLowerCase();
-    return source
-      .filter(
-        ({ mechanic, serviceType, vehicle, workOrder }) =>
-          (status === "all" || workOrder.status === status) &&
-          (!query ||
-            serviceType.name.toLowerCase().includes(query) ||
-            vehicle.fleetNumber.toLowerCase().includes(query) ||
-            mechanic?.fullName.toLowerCase().includes(query)),
-      )
+    return recordFilterService
+      .filterWorkOrders(source, {
+        dateFrom,
+        dateTo,
+        search,
+        status,
+      })
       .sort((left, right) =>
         right.workOrder.scheduledDate.localeCompare(
           left.workOrder.scheduledDate,
         ),
       );
-  }, [data, search, status, user]);
+  }, [data, dateFrom, dateTo, search, status, user]);
+
+  const activeFilters = [
+    search.trim() ? `Search: “${search.trim()}”` : "",
+    status !== "all" ? `Status: ${formatStatus(status)}` : "",
+    dateFrom ? `Scheduled from: ${dateFrom}` : "",
+    dateTo ? `Scheduled to: ${dateTo}` : "",
+  ].filter(Boolean);
 
   const startWork = async (record: WorkOrderOperationalView) => {
     if (!user) return;
@@ -242,7 +251,7 @@ export default function WorkOrdersPage() {
               id="work-order-search"
               label="Search work orders"
               onChange={setSearch}
-              placeholder="Search service, vehicle, or mechanic"
+              placeholder="Search plate, service, mechanic, or status"
               value={search}
             />
             <label className="toolbar-field">
@@ -261,6 +270,35 @@ export default function WorkOrdersPage() {
                 <option value="cancelled">Cancelled</option>
               </Select>
             </label>
+            <label className="toolbar-field">
+              <span>Scheduled from</span>
+              <Input
+                aria-label="Work order scheduled date from"
+                max={dateTo || undefined}
+                onChange={(event) => setDateFrom(event.target.value)}
+                type="date"
+                value={dateFrom}
+              />
+            </label>
+            <label className="toolbar-field">
+              <span>Scheduled to</span>
+              <Input
+                aria-label="Work order scheduled date to"
+                min={dateFrom || undefined}
+                onChange={(event) => setDateTo(event.target.value)}
+                type="date"
+                value={dateTo}
+              />
+            </label>
+            <ActiveFilters
+              filters={activeFilters}
+              onClear={() => {
+                setSearch("");
+                setStatus("all");
+                setDateFrom("");
+                setDateTo("");
+              }}
+            />
           </>
         }
         description={
@@ -288,8 +326,8 @@ export default function WorkOrdersPage() {
           <Table
             caption="Maintenance work orders"
             columns={columns}
-            emptyDescription="No work orders match this view."
-            emptyTitle="No work orders found"
+            emptyDescription="Adjust or clear the active search and filters to review other current work orders."
+            emptyTitle="No matching work orders"
             getRowKey={({ workOrder }) => workOrder.id}
             rows={rows}
           />

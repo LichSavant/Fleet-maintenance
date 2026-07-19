@@ -1,11 +1,13 @@
 import { useMemo, useState } from "react";
 
+import { ActiveFilters } from "../../components/common/ActiveFilters";
 import { ErrorState } from "../../components/common/ErrorState";
 import { HistoryCorrectionModal } from "../../components/common/HistoryCorrectionModal";
 import { ManagementLoadingState } from "../../components/common/ManagementLoadingState";
 import { ManagementPage } from "../../components/common/ManagementPage";
 import { SearchInput } from "../../components/ui/SearchInput";
 import { Button } from "../../components/ui/Button";
+import { Input } from "../../components/ui/Input";
 import { Table, type TableColumn } from "../../components/ui/Table";
 import { useAuth } from "../../hooks/useAuth";
 import { useFleetData } from "../../hooks/useFleetData";
@@ -14,12 +16,17 @@ import {
   type ServiceHistoryOperationalView,
 } from "../../services/operationsViewService";
 import { fleetDataService } from "../../services/fleetDataService";
+import { recordFilterService } from "../../services/recordFilterService";
 import { formatDate } from "../../utils/formatDate";
 
 export default function ServiceHistoryPage() {
   const { user } = useAuth();
   const { data, error, isLoading, reload } = useFleetData();
   const [search, setSearch] = useState("");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
+  const [mileageFrom, setMileageFrom] = useState("");
+  const [mileageTo, setMileageTo] = useState("");
   const [correcting, setCorrecting] =
     useState<ServiceHistoryOperationalView | null>(null);
   const [feedback, setFeedback] = useState<{
@@ -47,19 +54,26 @@ export default function ServiceHistoryPage() {
         ({ vehicle }) => vehicle.id === maintenance.vehicle?.id,
       );
     }
-    const query = search.trim().toLowerCase();
-    return history
-      .filter(
-        ({ mechanic, serviceType, vehicle }) =>
-          !query ||
-          serviceType.name.toLowerCase().includes(query) ||
-          vehicle.fleetNumber.toLowerCase().includes(query) ||
-          mechanic?.fullName.toLowerCase().includes(query),
-      )
+    return recordFilterService
+      .filterServiceHistory(history, {
+        dateFrom,
+        dateTo,
+        mileageFrom,
+        mileageTo,
+        search,
+      })
       .sort((left, right) =>
         right.history.serviceDate.localeCompare(left.history.serviceDate),
       );
-  }, [data, search, user]);
+  }, [data, dateFrom, dateTo, mileageFrom, mileageTo, search, user]);
+
+  const activeFilters = [
+    search.trim() ? `Search: “${search.trim()}”` : "",
+    dateFrom ? `Service date from: ${dateFrom}` : "",
+    dateTo ? `Service date to: ${dateTo}` : "",
+    mileageFrom ? `Mileage from: ${mileageFrom} km` : "",
+    mileageTo ? `Mileage to: ${mileageTo} km` : "",
+  ].filter(Boolean);
 
   const columns: Array<TableColumn<ServiceHistoryOperationalView>> = [
     {
@@ -130,13 +144,67 @@ export default function ServiceHistoryPage() {
     <ManagementPage
       breadcrumb="Service history"
       controls={
-        <SearchInput
-          id="service-history-search"
-          label="Search service history"
-          onChange={setSearch}
-          placeholder="Search service, vehicle, or mechanic"
-          value={search}
-        />
+        <>
+          <SearchInput
+            id="service-history-search"
+            label="Search service history"
+            onChange={setSearch}
+            placeholder="Search plate, service, mechanic, or status"
+            value={search}
+          />
+          <label className="toolbar-field">
+            <span>Service date from</span>
+            <Input
+              aria-label="Service date from"
+              max={dateTo || undefined}
+              onChange={(event) => setDateFrom(event.target.value)}
+              type="date"
+              value={dateFrom}
+            />
+          </label>
+          <label className="toolbar-field">
+            <span>Service date to</span>
+            <Input
+              aria-label="Service date to"
+              min={dateFrom || undefined}
+              onChange={(event) => setDateTo(event.target.value)}
+              type="date"
+              value={dateTo}
+            />
+          </label>
+          <label className="toolbar-field">
+            <span>Minimum mileage</span>
+            <Input
+              aria-label="Minimum service mileage"
+              min="0"
+              onChange={(event) => setMileageFrom(event.target.value)}
+              placeholder="0"
+              type="number"
+              value={mileageFrom}
+            />
+          </label>
+          <label className="toolbar-field">
+            <span>Maximum mileage</span>
+            <Input
+              aria-label="Maximum service mileage"
+              min="0"
+              onChange={(event) => setMileageTo(event.target.value)}
+              placeholder="Any"
+              type="number"
+              value={mileageTo}
+            />
+          </label>
+          <ActiveFilters
+            filters={activeFilters}
+            onClear={() => {
+              setSearch("");
+              setDateFrom("");
+              setDateTo("");
+              setMileageFrom("");
+              setMileageTo("");
+            }}
+          />
+        </>
       }
       description="Completed work orders form one authoritative history. Record identity and relationships remain immutable; administrators may make explicit audited corrections."
       feedback={feedback}
@@ -154,8 +222,16 @@ export default function ServiceHistoryPage() {
         <Table
           caption="Completed vehicle service history"
           columns={columns}
-          emptyDescription="Completed work appropriate to your current account will appear here."
-          emptyTitle="No completed service"
+          emptyDescription={
+            activeFilters.length
+              ? "Adjust or clear the active search and filters to review other completed service records."
+              : "Completed work appropriate to your current account will appear here."
+          }
+          emptyTitle={
+            activeFilters.length
+              ? "No matching service history"
+              : "No completed service"
+          }
           getRowKey={({ history }) => history.id}
           rows={rows}
         />

@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 
+import { ActiveFilters } from "../../components/common/ActiveFilters";
 import {
   AccountFormModal,
   type AccountFormValues,
@@ -79,6 +80,12 @@ export default function UsersPage() {
     (safePage - 1) * PAGE_SIZE,
     safePage * PAGE_SIZE,
   );
+
+  const activeFilters = [
+    search.trim() ? `Search: “${search.trim()}”` : "",
+    role !== "all" ? `Role: ${role}` : "",
+    status !== "all" ? `Status: ${status}` : "",
+  ].filter(Boolean);
 
   const columns: Array<TableColumn<UserManagementRecord>> = [
     {
@@ -253,6 +260,15 @@ export default function UsersPage() {
                 <option value="role">Role</option>
               </Select>
             </label>
+            <ActiveFilters
+              filters={activeFilters}
+              onClear={() => {
+                setSearch("");
+                setRole("all");
+                setStatus("all");
+                setPage(1);
+              }}
+            />
           </>
         }
         description="Create and maintain user accounts while preserving linked operational history."

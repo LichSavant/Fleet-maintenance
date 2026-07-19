@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 
+import { ActiveFilters } from "../../components/common/ActiveFilters";
 import { ErrorState } from "../../components/common/ErrorState";
 import { ManagementLoadingState } from "../../components/common/ManagementLoadingState";
 import { ManagementPage } from "../../components/common/ManagementPage";
@@ -53,6 +54,11 @@ export default function MaintenanceSchedulesPage() {
         left.schedule.dueDate.localeCompare(right.schedule.dueDate),
       );
   }, [data, search, status]);
+
+  const activeFilters = [
+    search.trim() ? `Search: “${search.trim()}”` : "",
+    status !== "all" ? `Status: ${status}` : "",
+  ].filter(Boolean);
 
   const columns: Array<TableColumn<ScheduleOperationalView>> = [
     {
@@ -167,6 +173,13 @@ export default function MaintenanceSchedulesPage() {
                 <option value="Cancelled">Cancelled</option>
               </Select>
             </label>
+            <ActiveFilters
+              filters={activeFilters}
+              onClear={() => {
+                setSearch("");
+                setStatus("all");
+              }}
+            />
           </>
         }
         description="Plan future vehicle service separately from work execution and completed history."

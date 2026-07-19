@@ -36,5 +36,17 @@ describe("UsersPage", () => {
       target: { value: "mechanic" },
     });
     expect(screen.getByText("No matching users")).toBeInTheDocument();
+    expect(screen.getByText("Search: “Liza”")).toBeInTheDocument();
+    expect(screen.getByText("Role: mechanic")).toBeInTheDocument();
+
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "Clear all search and filters",
+      }),
+    );
+
+    expect(screen.getByText("Liza Mendoza")).toBeInTheDocument();
+    expect(screen.getByText("Felix Dela Cruz")).toBeInTheDocument();
+    expect(screen.getByText("No active filters")).toBeInTheDocument();
   });
 });

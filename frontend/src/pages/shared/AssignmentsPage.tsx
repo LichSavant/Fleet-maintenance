@@ -1,11 +1,13 @@
 import { useMemo, useState } from "react";
 
+import { ActiveFilters } from "../../components/common/ActiveFilters";
 import { AssignmentFormModal } from "../../components/common/AssignmentFormModal";
 import { ErrorState } from "../../components/common/ErrorState";
 import { ManagementLoadingState } from "../../components/common/ManagementLoadingState";
 import { ManagementPage } from "../../components/common/ManagementPage";
 import { Button } from "../../components/ui/Button";
 import { ConfirmDialog } from "../../components/ui/ConfirmDialog";
+import { Input } from "../../components/ui/Input";
 import { SearchInput } from "../../components/ui/SearchInput";
 import { Select } from "../../components/ui/Select";
 import { StatusBadge } from "../../components/ui/StatusBadge";
@@ -17,6 +19,7 @@ import {
   operationsViewService,
   type AssignmentOperationalView,
 } from "../../services/operationsViewService";
+import { recordFilterService } from "../../services/recordFilterService";
 import type { AssignmentStatus } from "../../types/fleet";
 import { formatDate } from "../../utils/formatDate";
 import { getStatusTone } from "../../utils/statusTone";
@@ -26,6 +29,8 @@ export default function AssignmentsPage() {
   const { data, error, isLoading, reload } = useFleetData();
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState<AssignmentStatus | "all">("Active");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [ending, setEnding] = useState<AssignmentOperationalView | null>(null);
   const [isEnding, setIsEnding] = useState(false);
@@ -36,21 +41,24 @@ export default function AssignmentsPage() {
 
   const rows = useMemo(() => {
     if (!data) return [];
-    const query = search.trim().toLowerCase();
-    return operationsViewService
-      .getAssignments(data)
-      .filter(
-        ({ assignment, driver, vehicle }) =>
-          (status === "all" || assignment.status === status) &&
-          (!query ||
-            driver.fullName.toLowerCase().includes(query) ||
-            vehicle.fleetNumber.toLowerCase().includes(query) ||
-            vehicle.plateNumber.toLowerCase().includes(query)),
-      )
+    return recordFilterService
+      .filterAssignments(operationsViewService.getAssignments(data), {
+        dateFrom,
+        dateTo,
+        search,
+        status,
+      })
       .sort((left, right) =>
         right.assignment.startDate.localeCompare(left.assignment.startDate),
       );
-  }, [data, search, status]);
+  }, [data, dateFrom, dateTo, search, status]);
+
+  const activeFilters = [
+    search.trim() ? `Search: “${search.trim()}”` : "",
+    status !== "all" ? `Status: ${status}` : "",
+    dateFrom ? `Start date from: ${dateFrom}` : "",
+    dateTo ? `Start date to: ${dateTo}` : "",
+  ].filter(Boolean);
 
   const columns: Array<TableColumn<AssignmentOperationalView>> = [
     {
@@ -147,7 +155,7 @@ export default function AssignmentsPage() {
               id="assignment-search"
               label="Search assignments"
               onChange={setSearch}
-              placeholder="Search driver, fleet number, or plate"
+              placeholder="Search driver, vehicle, or status"
               value={search}
             />
             <label className="toolbar-field">
@@ -163,6 +171,35 @@ export default function AssignmentsPage() {
                 <option value="Ended">Historical</option>
               </Select>
             </label>
+            <label className="toolbar-field">
+              <span>Start date from</span>
+              <Input
+                aria-label="Assignment start date from"
+                max={dateTo || undefined}
+                onChange={(event) => setDateFrom(event.target.value)}
+                type="date"
+                value={dateFrom}
+              />
+            </label>
+            <label className="toolbar-field">
+              <span>Start date to</span>
+              <Input
+                aria-label="Assignment start date to"
+                min={dateFrom || undefined}
+                onChange={(event) => setDateTo(event.target.value)}
+                type="date"
+                value={dateTo}
+              />
+            </label>
+            <ActiveFilters
+              filters={activeFilters}
+              onClear={() => {
+                setSearch("");
+                setStatus("all");
+                setDateFrom("");
+                setDateTo("");
+              }}
+            />
           </>
         }
         description="Assign eligible drivers to available vehicles without overlapping active relationships."

@@ -4,6 +4,12 @@ import { formatRole } from "../utils/roleRoutes";
 import { formatStatus } from "../utils/formatStatus";
 import { mileageService } from "./mileageService";
 
+export interface MileageLogReportView {
+  driver: FleetState["users"][number];
+  mileageLog: FleetState["mileageLogs"][number];
+  vehicle: FleetState["vehicles"][number];
+}
+
 function countBy<T>(items: readonly T[], getKey: (item: T) => string) {
   const counts = new Map<string, number>();
   items.forEach((item) => {
@@ -77,7 +83,9 @@ export const reportService = {
         const vehicle = data.vehicles.find(
           (item) => item.id === mileageLog.vehicleId,
         );
-        return driver && vehicle ? [{ driver, mileageLog, vehicle }] : [];
+        return driver && vehicle
+          ? ([{ driver, mileageLog, vehicle }] satisfies MileageLogReportView[])
+          : [];
       });
 
     return {

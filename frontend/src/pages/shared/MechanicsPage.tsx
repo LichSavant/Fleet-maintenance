@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 
+import { ActiveFilters } from "../../components/common/ActiveFilters";
 import {
   AccountFormModal,
   type AccountFormValues,
@@ -18,6 +19,7 @@ import { useAuth } from "../../hooks/useAuth";
 import { useFleetData } from "../../hooks/useFleetData";
 import { fleetDataService } from "../../services/fleetDataService";
 import { managementViewService } from "../../services/managementViewService";
+import { recordFilterService } from "../../services/recordFilterService";
 import type {
   MechanicManagementRecord,
   UserAccountInput,
@@ -43,21 +45,12 @@ export default function MechanicsPage() {
 
   const records = useMemo(() => {
     if (!data) return [];
-    const query = search.trim().toLowerCase();
-    return managementViewService
-      .getMechanics(data)
-      .filter(
-        (record) =>
-          (!query ||
-            record.user.fullName.toLowerCase().includes(query) ||
-            record.user.email.toLowerCase().includes(query) ||
-            record.profile.employeeNumber.toLowerCase().includes(query) ||
-            record.profile.specialization.toLowerCase().includes(query)) &&
-          (status === "all" || record.user.status === status) &&
-          (work === "all" ||
-            (work === "open" && record.openWork > 0) ||
-            (work === "clear" && record.openWork === 0)),
-      )
+    return recordFilterService
+      .filterMechanics(managementViewService.getMechanics(data), {
+        search,
+        status,
+        work,
+      })
       .sort((left, right) => {
         if (sort === "name-desc")
           return right.user.fullName.localeCompare(left.user.fullName);
@@ -65,6 +58,12 @@ export default function MechanicsPage() {
         return left.user.fullName.localeCompare(right.user.fullName);
       });
   }, [data, search, sort, status, work]);
+
+  const activeFilters = [
+    search.trim() ? `Search: “${search.trim()}”` : "",
+    status !== "all" ? `Status: ${status}` : "",
+    work !== "all" ? `Workload: ${work}` : "",
+  ].filter(Boolean);
 
   const columns: Array<TableColumn<MechanicManagementRecord>> = [
     {
@@ -201,7 +200,7 @@ export default function MechanicsPage() {
               value={search}
             />
             <label className="toolbar-field">
-              <span>Account</span>
+              <span>Status</span>
               <Select
                 onChange={(event) =>
                   setStatus(event.target.value as typeof status)
@@ -235,6 +234,14 @@ export default function MechanicsPage() {
                 <option value="work">Open work</option>
               </Select>
             </label>
+            <ActiveFilters
+              filters={activeFilters}
+              onClear={() => {
+                setSearch("");
+                setStatus("all");
+                setWork("all");
+              }}
+            />
           </>
         }
         description="Maintain mechanic accounts, specialties, workload visibility, and service-history relationships."

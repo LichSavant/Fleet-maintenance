@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 
+import { ActiveFilters } from "../../components/common/ActiveFilters";
 import { ErrorState } from "../../components/common/ErrorState";
 import { ManagementLoadingState } from "../../components/common/ManagementLoadingState";
 import { ManagementPage } from "../../components/common/ManagementPage";
@@ -40,6 +41,8 @@ export default function ServiceTypesPage() {
       )
       .sort((left, right) => left.name.localeCompare(right.name));
   }, [data, search]);
+
+  const activeFilters = search.trim() ? [`Search: “${search.trim()}”`] : [];
 
   const columns: Array<TableColumn<ServiceType>> = [
     {
@@ -149,13 +152,19 @@ export default function ServiceTypesPage() {
         addLabel={canManage ? "Add service type" : undefined}
         breadcrumb="Service types"
         controls={
-          <SearchInput
-            id="service-type-search"
-            label="Search service types"
-            onChange={setSearch}
-            placeholder="Search name or description"
-            value={search}
-          />
+          <>
+            <SearchInput
+              id="service-type-search"
+              label="Search service types"
+              onChange={setSearch}
+              placeholder="Search name or description"
+              value={search}
+            />
+            <ActiveFilters
+              filters={activeFilters}
+              onClear={() => setSearch("")}
+            />
+          </>
         }
         description={
           canManage
@@ -185,8 +194,16 @@ export default function ServiceTypesPage() {
           <Table
             caption="Maintenance service types"
             columns={columns}
-            emptyDescription="Add a reusable service definition."
-            emptyTitle="No service types"
+            emptyDescription={
+              activeFilters.length
+                ? "Clear the active search to review other service types."
+                : "Add a reusable service definition."
+            }
+            emptyTitle={
+              activeFilters.length
+                ? "No matching service types"
+                : "No service types"
+            }
             getRowKey={(serviceType) => serviceType.id}
             rows={rows}
           />

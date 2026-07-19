@@ -1,11 +1,17 @@
+import { useState } from "react";
+
+import { ActiveFilters } from "../../components/common/ActiveFilters";
 import { ErrorState } from "../../components/common/ErrorState";
 import { ManagementLoadingState } from "../../components/common/ManagementLoadingState";
 import { ServiceMileageTable } from "../../components/common/ServiceMileageTable";
 import { PageHeader } from "../../components/layout/PageHeader";
 import { Card } from "../../components/ui/Card";
+import { Input } from "../../components/ui/Input";
+import { SearchInput } from "../../components/ui/SearchInput";
 import { Table } from "../../components/ui/Table";
 import { useFleetData } from "../../hooks/useFleetData";
 import { reportService } from "../../services/reportService";
+import { recordFilterService } from "../../services/recordFilterService";
 import { formatDate } from "../../utils/formatDate";
 
 interface ReportItem {
@@ -46,6 +52,11 @@ function ReportCard({ items, title }: ReportCardProps) {
 
 export default function ReportsPage() {
   const { data, error, isLoading, reload } = useFleetData();
+  const [mileageSearch, setMileageSearch] = useState("");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
+  const [mileageFrom, setMileageFrom] = useState("");
+  const [mileageTo, setMileageTo] = useState("");
 
   if (isLoading)
     return <ManagementLoadingState label="Calculating frontend reports" />;
@@ -60,6 +71,23 @@ export default function ReportsPage() {
   if (!data) return null;
 
   const reports = reportService.getReports(data);
+  const mileageLogs = recordFilterService.filterMileageLogs(
+    reports.recentMileageLogs,
+    {
+      dateFrom,
+      dateTo,
+      mileageFrom,
+      mileageTo,
+      search: mileageSearch,
+    },
+  );
+  const activeMileageFilters = [
+    mileageSearch.trim() ? `Search: “${mileageSearch.trim()}”` : "",
+    dateFrom ? `Log date from: ${dateFrom}` : "",
+    dateTo ? `Log date to: ${dateTo}` : "",
+    mileageFrom ? `Mileage from: ${mileageFrom} km` : "",
+    mileageTo ? `Mileage to: ${mileageTo} km` : "",
+  ].filter(Boolean);
 
   return (
     <div className="role-dashboard-page">
@@ -100,6 +128,67 @@ export default function ReportsPage() {
         />
       </Card>
       <Card eyebrow="Manual odometer records" title="Recent mileage logs">
+        <div className="management-toolbar report-filter-toolbar">
+          <SearchInput
+            id="mileage-log-search"
+            label="Search mileage logs"
+            onChange={setMileageSearch}
+            placeholder="Search plate number or driver"
+            value={mileageSearch}
+          />
+          <label className="toolbar-field">
+            <span>Log date from</span>
+            <Input
+              aria-label="Mileage log date from"
+              max={dateTo || undefined}
+              onChange={(event) => setDateFrom(event.target.value)}
+              type="date"
+              value={dateFrom}
+            />
+          </label>
+          <label className="toolbar-field">
+            <span>Log date to</span>
+            <Input
+              aria-label="Mileage log date to"
+              min={dateFrom || undefined}
+              onChange={(event) => setDateTo(event.target.value)}
+              type="date"
+              value={dateTo}
+            />
+          </label>
+          <label className="toolbar-field">
+            <span>Minimum mileage</span>
+            <Input
+              aria-label="Minimum mileage log reading"
+              min="0"
+              onChange={(event) => setMileageFrom(event.target.value)}
+              placeholder="0"
+              type="number"
+              value={mileageFrom}
+            />
+          </label>
+          <label className="toolbar-field">
+            <span>Maximum mileage</span>
+            <Input
+              aria-label="Maximum mileage log reading"
+              min="0"
+              onChange={(event) => setMileageTo(event.target.value)}
+              placeholder="Any"
+              type="number"
+              value={mileageTo}
+            />
+          </label>
+          <ActiveFilters
+            filters={activeMileageFilters}
+            onClear={() => {
+              setMileageSearch("");
+              setDateFrom("");
+              setDateTo("");
+              setMileageFrom("");
+              setMileageTo("");
+            }}
+          />
+        </div>
         <Table
           caption="Recent driver mileage logs"
           columns={[
@@ -116,7 +205,8 @@ export default function ReportsPage() {
             {
               header: "Vehicle",
               key: "vehicle",
-              render: ({ vehicle }) => vehicle.fleetNumber,
+              render: ({ vehicle }) =>
+                `${vehicle.fleetNumber} · ${vehicle.plateNumber}`,
             },
             {
               align: "right",
@@ -131,10 +221,18 @@ export default function ReportsPage() {
               render: ({ mileageLog }) => mileageLog.notes || "No notes",
             },
           ]}
-          emptyDescription="Driver-submitted odometer readings will appear here."
-          emptyTitle="No mileage logs"
+          emptyDescription={
+            activeMileageFilters.length
+              ? "Adjust or clear the active search and filters to review other mileage logs."
+              : "Driver-submitted odometer readings will appear here."
+          }
+          emptyTitle={
+            activeMileageFilters.length
+              ? "No matching mileage logs"
+              : "No mileage logs"
+          }
           getRowKey={({ mileageLog }) => mileageLog.id}
-          rows={reports.recentMileageLogs}
+          rows={mileageLogs}
         />
       </Card>
     </div>

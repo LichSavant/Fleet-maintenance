@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 
+import { ActiveFilters } from "../../components/common/ActiveFilters";
 import {
   AccountFormModal,
   type AccountFormValues,
@@ -18,6 +19,8 @@ import { useAuth } from "../../hooks/useAuth";
 import { useFleetData } from "../../hooks/useFleetData";
 import { fleetDataService } from "../../services/fleetDataService";
 import { managementViewService } from "../../services/managementViewService";
+import { recordFilterService } from "../../services/recordFilterService";
+import type { DriverStatus } from "../../types/fleet";
 import type {
   DriverManagementRecord,
   UserAccountInput,
@@ -27,7 +30,7 @@ export default function DriversPage() {
   const { user: currentUser } = useAuth();
   const { data, error, isLoading, reload } = useFleetData();
   const [search, setSearch] = useState("");
-  const [status, setStatus] = useState<"Active" | "Inactive" | "all">("all");
+  const [status, setStatus] = useState<DriverStatus | "all">("all");
   const [assignment, setAssignment] = useState<
     "assigned" | "available" | "all"
   >("all");
@@ -45,24 +48,12 @@ export default function DriversPage() {
 
   const records = useMemo(() => {
     if (!data) return [];
-    const query = search.trim().toLowerCase();
-    return managementViewService
-      .getDrivers(data)
-      .filter(
-        (record) =>
-          (!query ||
-            record.user.fullName.toLowerCase().includes(query) ||
-            record.user.email.toLowerCase().includes(query) ||
-            record.profile.employeeNumber.toLowerCase().includes(query) ||
-            record.profile.licenseNumber.toLowerCase().includes(query) ||
-            record.assignedVehicle?.plateNumber
-              .toLowerCase()
-              .includes(query)) &&
-          (status === "all" || record.user.status === status) &&
-          (assignment === "all" ||
-            (assignment === "assigned" && Boolean(record.activeAssignment)) ||
-            (assignment === "available" && !record.activeAssignment)),
-      )
+    return recordFilterService
+      .filterDrivers(managementViewService.getDrivers(data), {
+        assignment,
+        search,
+        status,
+      })
       .sort((left, right) => {
         if (sort === "name-desc")
           return right.user.fullName.localeCompare(left.user.fullName);
@@ -74,6 +65,12 @@ export default function DriversPage() {
         return left.user.fullName.localeCompare(right.user.fullName);
       });
   }, [assignment, data, search, sort, status]);
+
+  const activeFilters = [
+    search.trim() ? `Search: “${search.trim()}”` : "",
+    status !== "all" ? `Status: ${status}` : "",
+    assignment !== "all" ? `Assignment: ${assignment}` : "",
+  ].filter(Boolean);
 
   const columns: Array<TableColumn<DriverManagementRecord>> = [
     {
@@ -213,7 +210,7 @@ export default function DriversPage() {
               value={search}
             />
             <label className="toolbar-field">
-              <span>Account</span>
+              <span>Status</span>
               <Select
                 onChange={(event) =>
                   setStatus(event.target.value as typeof status)
@@ -221,7 +218,8 @@ export default function DriversPage() {
                 value={status}
               >
                 <option value="all">All statuses</option>
-                <option value="Active">Active</option>
+                <option value="Assigned">Assigned</option>
+                <option value="Available">Available</option>
                 <option value="Inactive">Inactive</option>
               </Select>
             </label>
@@ -249,6 +247,14 @@ export default function DriversPage() {
                 <option value="license">License</option>
               </Select>
             </label>
+            <ActiveFilters
+              filters={activeFilters}
+              onClear={() => {
+                setSearch("");
+                setStatus("all");
+                setAssignment("all");
+              }}
+            />
           </>
         }
         description="Manage driver accounts, licenses, availability, and current vehicle relationships."

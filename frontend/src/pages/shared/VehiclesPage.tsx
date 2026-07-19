@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 
+import { ActiveFilters } from "../../components/common/ActiveFilters";
 import { ErrorState } from "../../components/common/ErrorState";
 import { ManagementLoadingState } from "../../components/common/ManagementLoadingState";
 import { ManagementPage } from "../../components/common/ManagementPage";
@@ -19,6 +20,7 @@ import { Table, type TableColumn } from "../../components/ui/Table";
 import { useFleetData } from "../../hooks/useFleetData";
 import { fleetDataService } from "../../services/fleetDataService";
 import { managementViewService } from "../../services/managementViewService";
+import { recordFilterService } from "../../services/recordFilterService";
 import type { VehicleStatus } from "../../types/fleet";
 import type {
   VehicleInput,
@@ -54,20 +56,12 @@ export default function VehiclesPage() {
 
   const records = useMemo(() => {
     if (!data) return [];
-    const query = search.trim().toLowerCase();
-    return managementViewService
-      .getVehicles(data)
-      .filter(
-        (record) =>
-          (!query ||
-            record.vehicle.fleetNumber.toLowerCase().includes(query) ||
-            record.vehicle.plateNumber.toLowerCase().includes(query) ||
-            record.vehicle.make.toLowerCase().includes(query) ||
-            record.vehicle.model.toLowerCase().includes(query) ||
-            record.assignedDriver?.fullName.toLowerCase().includes(query)) &&
-          (status === "all" || record.vehicle.status === status) &&
-          (type === "all" || record.vehicle.type === type),
-      )
+    return recordFilterService
+      .filterVehicles(managementViewService.getVehicles(data), {
+        search,
+        status,
+        type,
+      })
       .sort((left, right) => {
         if (sort === "fleet-desc") {
           return right.vehicle.fleetNumber.localeCompare(
@@ -82,6 +76,12 @@ export default function VehiclesPage() {
         );
       });
   }, [data, search, sort, status, type]);
+
+  const activeFilters = [
+    search.trim() ? `Search: “${search.trim()}”` : "",
+    status !== "all" ? `Status: ${status}` : "",
+    type !== "all" ? `Type: ${type}` : "",
+  ].filter(Boolean);
 
   const totalPages = Math.max(1, Math.ceil(records.length / PAGE_SIZE));
   const safePage = Math.min(page, totalPages);
@@ -205,7 +205,7 @@ export default function VehiclesPage() {
                 setSearch(value);
                 setPage(1);
               }}
-              placeholder="Search fleet number, plate, or driver"
+              placeholder="Search plate, VIN, make, model, status, or driver"
               value={search}
             />
             <label className="toolbar-field">
@@ -253,6 +253,15 @@ export default function VehiclesPage() {
                 <option value="year">Newest year</option>
               </Select>
             </label>
+            <ActiveFilters
+              filters={activeFilters}
+              onClear={() => {
+                setSearch("");
+                setStatus("all");
+                setType("all");
+                setPage(1);
+              }}
+            />
           </>
         }
         description="Manage vehicle identity, condition, mileage, service dates, and assignment visibility."
