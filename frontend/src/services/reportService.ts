@@ -2,6 +2,7 @@ import type { FleetState } from "../types/fleet";
 import { USER_ROLES } from "../types/auth";
 import { formatRole } from "../utils/roleRoutes";
 import { formatStatus } from "../utils/formatStatus";
+import { mileageService } from "./mileageService";
 
 function countBy<T>(items: readonly T[], getKey: (item: T) => string) {
   const counts = new Map<string, number>();
@@ -19,6 +20,18 @@ function countBy<T>(items: readonly T[], getKey: (item: T) => string) {
 
 export const reportService = {
   getReports(data: FleetState) {
+    const serviceMileageStatuses = mileageService.getFleetServiceStatuses(data);
+    const serviceDueSummary = [
+      "UPCOMING",
+      "DUE_SOON",
+      "DUE_NOW",
+      "OVERDUE",
+      "NO_HISTORY",
+    ].map((status) => ({
+      label: formatStatus(status),
+      value: serviceMileageStatuses.filter((item) => item.status === status)
+        .length,
+    }));
     const vehicleStatus = countBy(data.vehicles, (vehicle) => vehicle.status);
     const maintenanceStatus = countBy(data.maintenanceWorkOrders, (record) =>
       formatStatus(record.status),
@@ -72,6 +85,8 @@ export const reportService = {
       maintenanceStatus,
       mileageSummary,
       recentMileageLogs,
+      serviceDueSummary,
+      serviceMileageStatuses,
       userRoleSummary,
       vehicleStatus,
     };

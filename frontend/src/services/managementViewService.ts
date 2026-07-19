@@ -5,6 +5,7 @@ import type {
   UserManagementRecord,
   VehicleManagementRecord,
 } from "../types/management";
+import { mileageService } from "./mileageService";
 
 function getUser(data: FleetState, userId: string) {
   return data.users.find((user) => user.id === userId);
@@ -88,25 +89,14 @@ export const managementViewService = {
             (profile) => profile.id === assignment.driverId,
           )
         : undefined;
-      const completedDates = data.maintenanceHistory
-        .filter((record) => record.vehicleId === vehicle.id)
-        .map((record) => record.serviceDate)
-        .sort((left, right) => right.localeCompare(left));
-      const nextDates = data.maintenanceSchedules
-        .filter(
-          (schedule) =>
-            schedule.vehicleId === vehicle.id &&
-            schedule.status !== "Converted" &&
-            schedule.status !== "Cancelled",
-        )
-        .map((schedule) => schedule.dueDate)
-        .sort();
       return {
         assignedDriver: driverProfile
           ? getUser(data, driverProfile.userId)
           : undefined,
-        lastServiceDate: completedDates[0],
-        nextServiceDate: nextDates[0],
+        serviceStatuses: mileageService.getVehicleServiceStatuses(
+          data,
+          vehicle.id,
+        ),
         vehicle,
       };
     });

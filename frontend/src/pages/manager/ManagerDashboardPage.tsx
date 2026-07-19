@@ -4,6 +4,7 @@ import { PageHeader } from "../../components/layout/PageHeader";
 import { useAuth } from "../../hooks/useAuth";
 import { dashboardService } from "../../services/dashboardService";
 import { formatDate, formatNumber } from "../../utils/formatDate";
+import { formatStatus } from "../../utils/formatStatus";
 import { getStatusTone } from "../../utils/statusTone";
 
 export default function ManagerDashboardPage() {
@@ -35,8 +36,13 @@ export default function ManagerDashboardPage() {
           value={dashboard.currentAssignments.length}
         />
         <DashboardMetric
-          label="Upcoming maintenance"
-          value={dashboard.upcomingMaintenance.length}
+          detail="Due soon, due now, or overdue"
+          label="Mileage service attention"
+          value={
+            dashboard.serviceMileageStatuses.filter((item) =>
+              ["DUE_SOON", "DUE_NOW", "OVERDUE"].includes(item.status),
+            ).length
+          }
         />
         <DashboardMetric
           label="Operational alerts"
@@ -59,17 +65,23 @@ export default function ManagerDashboardPage() {
           title="Current assignments"
         />
         <DashboardList
-          emptyDescription="Scheduled fleet service will appear here."
-          emptyTitle="No upcoming maintenance"
-          eyebrow="Maintenance"
-          items={dashboard.upcomingMaintenance.map((schedule) => ({
-            description: `${schedule.vehicle.plateNumber} · due ${formatDate(schedule.dueDate)}`,
-            id: schedule.id,
-            status: schedule.status,
-            title: schedule.service,
-            tone: getStatusTone(schedule.status),
-          }))}
-          title="Upcoming maintenance"
+          emptyDescription="Due service or missing completed-service history will appear here."
+          emptyTitle="No service attention required"
+          eyebrow="Mileage-based maintenance"
+          items={dashboard.serviceMileageStatuses
+            .filter((item) => item.status !== "UPCOMING")
+            .slice(0, 8)
+            .map((item) => ({
+              description:
+                item.status === "NO_HISTORY"
+                  ? `${item.vehicle.plateNumber} · ${formatNumber(item.currentMileage)} km current · no completed-service history`
+                  : `${item.vehicle.plateNumber} · ${formatNumber(item.currentMileage)} km current · ${formatNumber(item.lastCompletedServiceMileage ?? 0)} km last · ${formatNumber(item.recommendedIntervalKm)} km interval · ${formatNumber(item.nextServiceMileage ?? 0)} km next · ${formatNumber(item.remainingDistance ?? 0)} km remaining`,
+              id: `${item.vehicleId}-${item.serviceTypeId}`,
+              status: formatStatus(item.status),
+              title: item.service,
+              tone: getStatusTone(item.status),
+            }))}
+          title="Service attention and history gaps"
         />
         <DashboardList
           emptyDescription="Submitted driver mileage will appear here."
@@ -91,7 +103,7 @@ export default function ManagerDashboardPage() {
           items={dashboard.operationalAlerts.map((alert) => ({
             description: alert.description,
             id: alert.id,
-            status: alert.tone === "danger" ? "Overdue" : "Review",
+            status: alert.tone === "danger" ? "Overdue" : "Due now",
             title: alert.title,
             tone: alert.tone,
           }))}
@@ -103,14 +115,14 @@ export default function ManagerDashboardPage() {
           emptyTitle="No recent schedules"
           eyebrow="Planning"
           items={dashboard.recentSchedules.slice(0, 4).map((schedule) => ({
-            description: `${schedule.vehicle.plateNumber} · due ${formatDate(schedule.dueDate)}`,
+            description: `${schedule.vehicle.plateNumber} · planned ${formatDate(schedule.dueDate)}`,
             id: schedule.id,
             meta: `Created ${formatDate(schedule.createdAt)}`,
             status: schedule.status,
             title: schedule.service,
             tone: getStatusTone(schedule.status),
           }))}
-          title="Recent schedules"
+          title="Recent manual plans"
         />
       </div>
     </div>

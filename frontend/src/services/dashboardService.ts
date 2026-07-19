@@ -7,8 +7,10 @@ import type {
   MileageLog,
   Vehicle,
   VehicleAssignment,
+  VehicleServiceMileageStatus,
 } from "../types/fleet";
 import { fleetDataService } from "./fleetDataService";
+import { mileageService } from "./mileageService";
 import { sharedViewService } from "./sharedViewService";
 
 export interface ActivityView extends AuditEvent {
@@ -21,6 +23,7 @@ export interface AssignmentView extends VehicleAssignment {
 }
 
 export interface MaintenanceView extends MaintenanceWorkOrder {
+  mileageStatus?: VehicleServiceMileageStatus;
   service: string;
   vehicle: Vehicle;
 }
@@ -37,6 +40,11 @@ export interface ScheduleView extends MaintenanceSchedule {
 
 export interface MileageView extends MileageLog {
   driverName: string;
+  vehicle: Vehicle;
+}
+
+export interface ServiceMileageView extends VehicleServiceMileageStatus {
+  service: string;
   vehicle: Vehicle;
 }
 
@@ -89,13 +97,32 @@ function enrichAssignments(assignments: readonly VehicleAssignment[]) {
 }
 
 function enrichMaintenance(records: readonly MaintenanceWorkOrder[]) {
+  const data = fleetDataService.getSnapshot();
   return records.flatMap<MaintenanceView>((record) => {
     const vehicle = getVehicle(record.vehicleId);
-    const serviceType = fleetDataService
-      .getSnapshot()
-      .serviceTypes.find((item) => item.id === record.serviceTypeId);
+    const serviceType = data.serviceTypes.find(
+      (item) => item.id === record.serviceTypeId,
+    );
+    const mileageStatus = mileageService
+      .getVehicleServiceStatuses(data, record.vehicleId)
+      .find((item) => item.serviceTypeId === record.serviceTypeId);
     return vehicle && serviceType
-      ? [{ ...record, service: serviceType.name, vehicle }]
+      ? [{ ...record, mileageStatus, service: serviceType.name, vehicle }]
+      : [];
+  });
+}
+
+function enrichServiceMileage(
+  data: ReturnType<typeof fleetDataService.getSnapshot>,
+  statuses: readonly VehicleServiceMileageStatus[],
+) {
+  return statuses.flatMap<ServiceMileageView>((status) => {
+    const vehicle = data.vehicles.find((item) => item.id === status.vehicleId);
+    const serviceType = data.serviceTypes.find(
+      (item) => item.id === status.serviceTypeId,
+    );
+    return vehicle && serviceType
+      ? [{ ...status, service: serviceType.name, vehicle }]
       : [];
   });
 }
@@ -150,6 +177,7 @@ export const dashboardService = {
 
   getAdminDashboard() {
     const data = fleetDataService.getSnapshot();
+    const serviceStatuses = mileageService.getFleetServiceStatuses(data);
     const activeVehicles = data.vehicles.filter(
       (vehicle) => vehicle.status === "Active",
     ).length;
@@ -171,6 +199,12 @@ export const dashboardService = {
         data.maintenanceWorkOrders.length + data.maintenanceHistory.length,
       pendingWork,
       recentActivity,
+      serviceAttention: serviceStatuses.filter((item) =>
+        ["DUE_SOON", "DUE_NOW", "OVERDUE"].includes(item.status),
+      ).length,
+      serviceHistoryGaps: serviceStatuses.filter(
+        (item) => item.status === "NO_HISTORY",
+      ).length,
       totalUsers: data.users.length,
       totalVehicles: data.vehicles.length,
     };
@@ -184,14 +218,9 @@ export const dashboardService = {
     const currentAssignments = enrichAssignments(
       data.assignments.filter((assignment) => assignment.status === "Active"),
     );
-    const upcomingMaintenance = enrichSchedules(
-      data.maintenanceSchedules.filter(
-        (schedule) =>
-          schedule.status !== "Converted" && schedule.status !== "Cancelled",
-      ),
-    ).sort(
-      (left, right) =>
-        new Date(left.dueDate).getTime() - new Date(right.dueDate).getTime(),
+    const serviceMileageStatuses = enrichServiceMileage(
+      data,
+      mileageService.getFleetServiceStatuses(data),
     );
     const driverActivity = byNewest(
       enrichMileage(data.mileageLogs),
@@ -202,24 +231,19 @@ export const dashboardService = {
       (schedule) => schedule.createdAt,
     );
     const operationalAlerts: OperationalAlert[] = [
-      ...data.maintenanceSchedules
-        .filter((schedule) => schedule.status === "Overdue")
-        .flatMap<OperationalAlert>((schedule) => {
-          const vehicle = getVehicle(schedule.vehicleId);
-          const serviceType = data.serviceTypes.find(
-            (item) => item.id === schedule.serviceTypeId,
-          );
-          return vehicle && serviceType
-            ? [
-                {
-                  description: `${vehicle.plateNumber} · due ${schedule.dueDate}`,
-                  id: `alert-${schedule.id}`,
-                  title: serviceType.name,
-                  tone: "danger",
-                },
-              ]
-            : [];
-        }),
+      ...serviceMileageStatuses
+        .filter(
+          (item) =>
+            item.status === "DUE_SOON" ||
+            item.status === "DUE_NOW" ||
+            item.status === "OVERDUE",
+        )
+        .map<OperationalAlert>((item) => ({
+          description: `${item.vehicle.plateNumber} · ${item.remainingDistance?.toLocaleString()} km remaining`,
+          id: `alert-${item.vehicleId}-${item.serviceTypeId}`,
+          title: item.service,
+          tone: item.status === "OVERDUE" ? "danger" : "warning",
+        })),
       ...data.vehicles
         .filter((vehicle) => vehicle.status === "Out of Service")
         .map<OperationalAlert>((vehicle) => ({
@@ -239,8 +263,8 @@ export const dashboardService = {
       managerProfile,
       operationalAlerts,
       recentSchedules,
+      serviceMileageStatuses,
       totalVehicles: data.vehicles.length,
-      upcomingMaintenance,
     };
   },
 
@@ -311,13 +335,9 @@ export const dashboardService = {
         )
       : [];
     const maintenanceReminders = assignedVehicle
-      ? enrichSchedules(
-          data.maintenanceSchedules.filter(
-            (schedule) =>
-              schedule.vehicleId === assignedVehicle.id &&
-              schedule.status !== "Converted" &&
-              schedule.status !== "Cancelled",
-          ),
+      ? enrichServiceMileage(
+          data,
+          mileageService.getVehicleServiceStatuses(data, assignedVehicle.id),
         )
       : [];
 

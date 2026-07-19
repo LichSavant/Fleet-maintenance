@@ -9,16 +9,20 @@ export interface RecordDetail {
 }
 
 export interface RecordDetailsModalProps {
+  children?: ReactNode;
   details: readonly RecordDetail[];
   isOpen: boolean;
   onClose: () => void;
+  size?: "small" | "medium" | "large";
   title: string;
 }
 
 export function RecordDetailsModal({
+  children,
   details,
   isOpen,
   onClose,
+  size,
   title,
 }: RecordDetailsModalProps) {
   return (
@@ -26,6 +30,7 @@ export function RecordDetailsModal({
       footer={<Button onClick={onClose}>Close</Button>}
       isOpen={isOpen}
       onClose={onClose}
+      size={size}
       title={title}
     >
       <dl className="record-details">
@@ -36,6 +41,7 @@ export function RecordDetailsModal({
           </div>
         ))}
       </dl>
+      {children}
     </Modal>
   );
 }

@@ -1,5 +1,6 @@
 import { ErrorState } from "../../components/common/ErrorState";
 import { ManagementLoadingState } from "../../components/common/ManagementLoadingState";
+import { ServiceMileageTable } from "../../components/common/ServiceMileageTable";
 import { PageHeader } from "../../components/layout/PageHeader";
 import { Card } from "../../components/ui/Card";
 import { Table } from "../../components/ui/Table";
@@ -82,8 +83,22 @@ export default function ReportsPage() {
           title="Assignment summary"
         />
         <ReportCard items={reports.mileageSummary} title="Mileage summary" />
+        <ReportCard
+          items={reports.serviceDueSummary}
+          title="Mileage service status"
+        />
         <ReportCard items={reports.userRoleSummary} title="User-role summary" />
       </div>
+      <Card
+        eyebrow="Preventive maintenance"
+        title="Mileage service calculations"
+      >
+        <ServiceMileageTable
+          data={data}
+          rows={reports.serviceMileageStatuses}
+          showVehicle
+        />
+      </Card>
       <Card eyebrow="Manual odometer records" title="Recent mileage logs">
         <Table
           caption="Recent driver mileage logs"

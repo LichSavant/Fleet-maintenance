@@ -55,7 +55,7 @@ This checklist is intentionally left unchecked for formal acceptance testing. Th
   - Status: Completed — invalid values receive inline/service errors, successful logs update the vehicle, and vehicle editing cannot bypass the mileage-log workflow.
 
 - [x] Mileage-derived service recalculation and threshold notification
-  - Expected behavior: After an odometer update, active service definitions derive their next-service mileage from the latest matching service history plus the interval; the final 10% of the interval is due soon, the target is due now, and readings above it are overdue. A notification is created only when the reading crosses into a more urgent status.
+  - Expected behavior: After an odometer update, active service definitions derive their next-service mileage from the latest matching service history plus the interval; the centralized 1,000 km threshold is due soon, the target is due now, and readings above it are overdue. A notification is created only when the reading crosses into a more urgent status.
   - Relevant files: `frontend/src/services/mileageService.ts`, `frontend/src/services/fleetDataService.ts`, `frontend/src/pages/driver/DriverMileagePage.tsx`, `frontend/src/types/fleet.ts`
   - Manual test: Submit readings immediately below, at, and above the due-soon and next-service boundaries; inspect the derived status table and notification list after each submission.
   - Status: Completed for the manual mileage workflow — status is derived rather than stored, and threshold crossings create account-scoped reminders.
@@ -65,6 +65,32 @@ This checklist is intentionally left unchecked for formal acceptance testing. Th
   - Relevant files: `frontend/src/services/fleetDataService.ts`, `frontend/src/services/reportService.ts`, `frontend/src/pages/driver/DriverMileagePage.tsx`, `frontend/src/pages/shared/ReportsPage.tsx`
   - Manual test: Submit one reading, verify its audit event and driver history, then sign in as administrator or manager and find the same record in Recent mileage logs.
   - Status: Completed.
+
+## Completed core mileage-based service calculation
+
+- [x] Official next-service and remaining-distance formula
+  - Expected behavior: For each vehicle and active service type with completed history, `nextServiceMileage = lastCompletedServiceMileage + recommendedIntervalKm` and `remainingDistance = nextServiceMileage - currentVehicleMileage`; the values are derived and never separately stored.
+  - Relevant files: `frontend/src/services/mileageService.ts`, `frontend/src/types/fleet.ts`
+  - Manual test: Use a known completed-service odometer and interval, calculate both formulas independently, and compare every displayed field after refresh.
+  - Status: Completed — one typed domain service owns both formulas and consumes the current canonical records.
+
+- [x] Centralized mileage maintenance statuses
+  - Expected behavior: The shared 1,000 km threshold yields `UPCOMING` above 1,000 km, `DUE_SOON` from 1 through 1,000 km, `DUE_NOW` at zero, `OVERDUE` below zero, and `NO_HISTORY` with null last/next/remaining values when no completed service exists.
+  - Relevant files: `frontend/src/services/mileageService.ts`, `frontend/src/services/mileageService.test.ts`, `frontend/src/types/fleet.ts`
+  - Manual test: Exercise every boundary and a service type without history; verify no zero-kilometre service is invented.
+  - Status: Completed — all five statuses and the no-history null semantics have focused unit coverage.
+
+- [x] Consistent mileage breakdown across application views
+  - Expected behavior: Dashboards, vehicle details, driver maintenance/reminders, driver assigned-vehicle mileage, and reports use the same derived rows and show current, last, interval, next, remaining, and status values.
+  - Relevant files: `frontend/src/components/common/ServiceMileageTable.tsx`, `frontend/src/services/dashboardService.ts`, `frontend/src/services/managementViewService.ts`, `frontend/src/services/reportService.ts`, `frontend/src/pages`
+  - Manual test: Compare one vehicle/service pair in its vehicle modal, driver views, manager dashboard, and reports after recording mileage and completing service.
+  - Status: Completed — shared tables and view services consume `mileageService`; no page duplicates the formula.
+
+- [x] Manual planning separated from automatic due status
+  - Expected behavior: A manager-selected schedule/work-order date remains planning metadata and never changes mileage maintenance status; schedule records are labelled `Planned`, while urgency comes only from mileage.
+  - Relevant files: `frontend/src/types/fleet.ts`, `frontend/src/services/fleetDataService.ts`, `frontend/src/services/fleetStateMigration.ts`, `frontend/src/pages/shared/MaintenanceSchedulesPage.tsx`, `frontend/src/pages/driver/DriverMaintenancePage.tsx`
+  - Manual test: Move a planned date before and after today without changing mileage and confirm the mileage status is unchanged; then change mileage and confirm status changes.
+  - Status: Completed — v3 `Upcoming`/`Overdue` schedule data migrates to the non-urgent `Planned` status in v4.
 
 ## Required capabilities
 
@@ -108,19 +134,19 @@ This checklist is intentionally left unchecked for formal acceptance testing. Th
   - Expected behavior: Every interval-based service definition stores a validated distance in the chosen system unit and the value is used consistently by maintenance calculations, forms, reports, and notifications.
   - Relevant files: `frontend/src/types/fleet.ts`, `frontend/src/types/operations.ts`, `frontend/src/components/common/ServiceTypeFormModal.tsx`, `frontend/src/services/fleetDataService.ts`
   - Manual test: Create services with valid, zero, negative, fractional, and missing intervals; reload data and confirm valid intervals drive calculations without a calendar-due dependency.
-  - Status: Partial — validated intervals now drive derived driver mileage statuses and threshold notifications; mileage-based report/dashboard replacement remains for a later integration stage.
+  - Status: Implemented — validated active service intervals drive the shared calculation used by dashboards, details, reminders, reports, and threshold notifications.
 
 - [ ] Automatic next-service mileage calculation
   - Expected behavior: For each vehicle/service pair, next service mileage is derived from the latest qualifying completed-service odometer plus the service interval and automatically updates after service completion or a corrected source record.
   - Relevant files: `frontend/src/types/fleet.ts`, `frontend/src/services/fleetDataService.ts`, `frontend/src/services/operationsViewService.ts`, `frontend/src/services/managementViewService.ts`, `frontend/src/services/reportService.ts`
   - Manual test: Complete a service at a known odometer with a known interval, verify the sum everywhere it appears, add later service history, and confirm the latest qualifying record becomes the source without duplicate stored totals.
-  - Status: Partial — `mileageService` derives next mileage from the latest matching history odometer plus the interval and refreshes it after mileage writes; remaining dashboards/reports do not all consume the calculation yet.
+  - Status: Implemented — `mileageService` uses the official formula, derives null for no history, and all required application views consume the result.
 
 - [ ] Due-soon, due-now, and overdue mileage status calculation
   - Expected behavior: A documented mileage threshold deterministically produces due soon below the target, due now at the target, and overdue above it; status is derived from current odometer and next-service mileage and never becomes stale.
   - Relevant files: `frontend/src/types/fleet.ts`, `frontend/src/services/fleetDataService.ts`, `frontend/src/services/dashboardService.ts`, `frontend/src/services/reportService.ts`, `frontend/src/utils`
   - Manual test: Set readings immediately below the due-soon boundary, at each boundary, at the target, and above the target; refresh and verify badges, dashboards, reports, and notifications all agree.
-  - Status: Partial — the manual mileage workflow now derives due soon, due now, and overdue without storing stale status, using a documented final-10%-of-interval due-soon threshold. Legacy schedule views still expose separate calendar statuses.
+  - Status: Implemented — all five uppercase statuses use the centralized 1,000 km threshold and current records; manual schedule dates do not participate.
 
 - [ ] Role-based access for administrator, manager, mechanic, and driver
   - Expected behavior: Routes, navigation, visible actions, read scopes, and service mutations use one documented permission matrix; direct URL and direct service-call attempts fail for unauthorized roles; current-user data is session-derived.
@@ -138,7 +164,7 @@ This checklist is intentionally left unchecked for formal acceptance testing. Th
   - Expected behavior: Vehicle, maintenance, assignment, mileage, role, and service-due reports are calculated from current source records; odometer readings are not incorrectly summed as travelled distance; no card uses a static total.
   - Relevant files: `frontend/src/pages/shared/ReportsPage.tsx`, `frontend/src/services/reportService.ts`, `frontend/src/types/fleet.ts`
   - Manual test: Record one controlled mutation per report category and verify only the mathematically affected values change; independently calculate mileage and due-status totals from the records.
-  - Status: Partial — mileage summaries now use distinct vehicles and distance between logged readings, and recent logs are relationship-derived; mileage-based maintenance report categories are still absent.
+  - Status: Implemented for required frontend summaries — reports include relationship-derived mileage logs, correct distance aggregation, status counts, and the complete per-vehicle/service mileage breakdown.
 
 - [ ] Audit logging
   - Expected behavior: Every create, update, deactivate, assignment, odometer, maintenance, service-type, and relevant account action produces an immutable audit event containing actor, action, entity, and timestamp; authorized users can search/filter the log.
@@ -170,7 +196,7 @@ This checklist is intentionally left unchecked for formal acceptance testing. Th
   - Expected behavior: Service due calculations, badges, reports, and reminders use odometer mileage; dates may identify when a record occurred but do not determine preventive-service due status.
   - Relevant files: `frontend/src/types/fleet.ts`, `frontend/src/services/fleetDataService.ts`, `frontend/src/services/dashboardService.ts`, `frontend/src/services/managementViewService.ts`, `frontend/src/pages/shared/MaintenanceSchedulesPage.tsx`
   - Manual test: Advance dates without changing mileage, then change mileage without advancing dates; verify only mileage changes preventive-service status.
-  - Status: Not met — maintenance due behavior is calendar-date based.
+  - Status: Met for automatic maintenance status — all urgency and reminder thresholds are odometer-derived; manually selected dates remain planning metadata only.
 
 - [ ] Manual data entry only
   - Expected behavior: All odometer and maintenance source values are entered through explicit forms; no simulated sensor feed silently changes them.
@@ -218,7 +244,7 @@ This checklist is intentionally left unchecked for formal acceptance testing. Th
   - Expected behavior: No timer or date threshold automatically generates service-due status or reminders; preventive reminders derive from mileage events and mileage thresholds.
   - Relevant files: `frontend/src/services/fleetDataService.ts`, `frontend/src/services/dashboardService.ts`, `frontend/src/types/fleet.ts`, `frontend/src/pages/driver/DriverDashboardPage.tsx`
   - Manual test: Cross a calendar date without changing mileage and verify no due-state/reminder change; then cross a mileage threshold and verify the documented event is generated.
-  - Status: Partial — manual odometer changes now generate mileage-threshold reminders with no timer, but existing schedule status and some seeded reminder content remain calendar-date based.
+  - Status: Met — manually created plans may notify their linked users, but dates never calculate service urgency; automatic due reminders are generated only by mileage threshold crossings.
 
 ## Validation baseline recorded during audit
 
@@ -226,4 +252,4 @@ This checklist is intentionally left unchecked for formal acceptance testing. Th
   - Expected behavior: `npm run lint`, `npm run typecheck`, `npm run test`, and `npm run build` all exit successfully, with new mileage-boundary, authorization, audit, and integrity tests included.
   - Relevant files: `frontend/package.json`, all `frontend/src/**/*.test.ts` and `frontend/src/**/*.test.tsx`
   - Manual test: Run all four commands from `frontend/` and compare the test inventory with every requirement above.
-  - Status: Current mileage-workflow baseline passes: format passed; lint passed; typecheck passed; 10 test files/66 tests passed; build passed with 120 modules transformed. Mileage boundaries, lower/equal rejection, assignment and vehicle eligibility, current-user association, atomic vehicle updates, audit creation, threshold reminders, migration, and relationship integrity have automated coverage; broader permission-boundary tests remain for later stages.
+  - Status: Current mileage-service-calculation baseline passes: format passed; lint passed; typecheck passed; 10 test files/75 tests passed; build passed with 121 modules transformed. All five mileage statuses, multiple service types, no-history behavior, mileage-log recalculation, completed-maintenance recalculation, calendar-date independence, schedule migration, relationship integrity, and threshold notifications have automated coverage; broader permission-boundary tests remain for later stages.

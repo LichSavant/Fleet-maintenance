@@ -1,7 +1,11 @@
 import type { StatusTone } from "../components/ui/StatusBadge";
 
 export function getStatusTone(status: string): StatusTone {
-  if (["Active", "Completed", "completed", "Converted"].includes(status)) {
+  if (
+    ["Active", "Completed", "completed", "Converted", "UPCOMING"].includes(
+      status,
+    )
+  ) {
     return "success";
   }
   if (
@@ -12,6 +16,8 @@ export function getStatusTone(status: string): StatusTone {
       "cancelled",
       "Cancelled",
       "overdue",
+      "OVERDUE",
+      "DUE_NOW",
     ].includes(status)
   ) {
     return "danger";
@@ -23,12 +29,15 @@ export function getStatusTone(status: string): StatusTone {
     [
       "Pending",
       "Upcoming",
+      "Planned",
       "Maintenance",
       "Medium",
       "scheduled",
       "assigned",
       "due_soon",
       "due_now",
+      "DUE_SOON",
+      "NO_HISTORY",
     ].includes(status)
   ) {
     return "warning";

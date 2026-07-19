@@ -97,8 +97,7 @@ export default function MaintenanceSchedulesPage() {
       header: "Actions",
       key: "actions",
       render: (record) =>
-        record.schedule.status === "Upcoming" ||
-        record.schedule.status === "Overdue" ? (
+        record.schedule.status === "Planned" ? (
           <Button
             onClick={() => setCancelling(record)}
             size="small"
@@ -163,8 +162,7 @@ export default function MaintenanceSchedulesPage() {
                 value={status}
               >
                 <option value="all">All statuses</option>
-                <option value="Upcoming">Upcoming</option>
-                <option value="Overdue">Overdue</option>
+                <option value="Planned">Planned</option>
                 <option value="Converted">Converted</option>
                 <option value="Cancelled">Cancelled</option>
               </Select>

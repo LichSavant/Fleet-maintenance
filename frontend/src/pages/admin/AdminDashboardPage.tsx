@@ -34,6 +34,14 @@ export default function AdminDashboardPage() {
           value={dashboard.maintenanceRecords}
         />
         <DashboardMetric label="Pending work" value={dashboard.pendingWork} />
+        <DashboardMetric
+          label="Mileage service attention"
+          value={dashboard.serviceAttention}
+        />
+        <DashboardMetric
+          label="Service history gaps"
+          value={dashboard.serviceHistoryGaps}
+        />
       </section>
 
       <DashboardList

@@ -2,6 +2,7 @@ import { type FormEvent, useMemo, useState } from "react";
 
 import { ErrorState } from "../../components/common/ErrorState";
 import { ManagementLoadingState } from "../../components/common/ManagementLoadingState";
+import { ServiceMileageTable } from "../../components/common/ServiceMileageTable";
 import { PageHeader } from "../../components/layout/PageHeader";
 import { Button } from "../../components/ui/Button";
 import { Card } from "../../components/ui/Card";
@@ -17,7 +18,6 @@ import { sharedViewService } from "../../services/sharedViewService";
 import type { MileageLog } from "../../types/fleet";
 import { SharedFeatureError } from "../../types/shared";
 import { formatDate } from "../../utils/formatDate";
-import { formatStatus } from "../../utils/formatStatus";
 import { getStatusTone } from "../../utils/statusTone";
 
 const today = new Date().toISOString().slice(0, 10);
@@ -259,48 +259,7 @@ export default function DriverMileagePage() {
         </Card>
       </div>
       <Card eyebrow="Mileage-based maintenance" title="Service mileage status">
-        <Table
-          caption="Derived service mileage status for the assigned vehicle"
-          columns={[
-            {
-              header: "Service",
-              key: "service",
-              render: (entry) =>
-                data.serviceTypes.find(
-                  (serviceType) => serviceType.id === entry.serviceTypeId,
-                )?.name ?? "Unknown service",
-            },
-            {
-              align: "right",
-              header: "Last service",
-              key: "last-service",
-              render: (entry) =>
-                entry.lastServiceMileage === null
-                  ? "No recorded service"
-                  : `${entry.lastServiceMileage.toLocaleString()} km`,
-            },
-            {
-              align: "right",
-              header: "Next service",
-              key: "next-service",
-              render: (entry) =>
-                `${entry.nextServiceMileage.toLocaleString()} km`,
-            },
-            {
-              header: "Status",
-              key: "status",
-              render: (entry) => (
-                <StatusBadge tone={getStatusTone(entry.status)}>
-                  {formatStatus(entry.status)}
-                </StatusBadge>
-              ),
-            },
-          ]}
-          emptyDescription="Active service intervals will appear here."
-          emptyTitle="No service intervals"
-          getRowKey={(entry) => entry.serviceTypeId}
-          rows={mileageView.serviceStatuses}
-        />
+        <ServiceMileageTable data={data} rows={mileageView.serviceStatuses} />
       </Card>
       <Card eyebrow="Submission log" title="Previous mileage history">
         <Table<MileageLog>

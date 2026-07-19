@@ -34,8 +34,7 @@ export function WorkOrderFormModal({
   const [error, setError] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const availableSchedules = data.maintenanceSchedules.filter(
-    (schedule) =>
-      schedule.status === "Upcoming" || schedule.status === "Overdue",
+    (schedule) => schedule.status === "Planned",
   );
   const mechanics = data.mechanicProfiles.flatMap((profile) => {
     const user = data.users.find((item) => item.id === profile.userId);

@@ -5,6 +5,7 @@ import { ManagementLoadingState } from "../../components/common/ManagementLoadin
 import { ManagementPage } from "../../components/common/ManagementPage";
 import { RecordActions } from "../../components/common/RecordActions";
 import { RecordDetailsModal } from "../../components/common/RecordDetailsModal";
+import { ServiceMileageTable } from "../../components/common/ServiceMileageTable";
 import {
   VehicleFormModal,
   type VehicleFormValues,
@@ -23,7 +24,6 @@ import type {
   VehicleInput,
   VehicleManagementRecord,
 } from "../../types/management";
-import { formatDate } from "../../utils/formatDate";
 import { getStatusTone } from "../../utils/statusTone";
 
 const PAGE_SIZE = 5;
@@ -329,25 +329,23 @@ export default function VehiclesPage() {
                   label: "Assigned driver",
                   value: viewing.assignedDriver?.fullName ?? "Unassigned",
                 },
-                {
-                  label: "Last service",
-                  value: viewing.lastServiceDate
-                    ? formatDate(viewing.lastServiceDate)
-                    : "No completed service",
-                },
-                {
-                  label: "Next service",
-                  value: viewing.nextServiceDate
-                    ? formatDate(viewing.nextServiceDate)
-                    : "Not scheduled",
-                },
               ]
             : []
         }
         isOpen={Boolean(viewing)}
         onClose={() => setViewing(null)}
+        size="large"
         title="Vehicle record"
-      />
+      >
+        {viewing && data && (
+          <section aria-labelledby="vehicle-service-mileage-heading">
+            <h3 id="vehicle-service-mileage-heading">
+              Mileage-based service breakdown
+            </h3>
+            <ServiceMileageTable data={data} rows={viewing.serviceStatuses} />
+          </section>
+        )}
+      </RecordDetailsModal>
       <ConfirmDialog
         confirmLabel="Take out of service"
         description="Active assignments or open maintenance work prevent this action. Historical vehicle records will remain intact."

@@ -37,7 +37,7 @@ export default function DriverDashboardPage() {
           value={vehicle ? `${formatNumber(vehicle.currentMileage)} km` : "—"}
         />
         <DashboardMetric
-          label="Maintenance reminders"
+          label="Service calculations"
           value={dashboard.maintenanceReminders.length}
         />
         <DashboardMetric
@@ -80,17 +80,20 @@ export default function DriverDashboardPage() {
           )}
         </Card>
         <DashboardList
-          emptyDescription="Scheduled service for the assigned vehicle will appear here."
-          emptyTitle="No maintenance reminders"
-          eyebrow="Service schedule"
-          items={dashboard.maintenanceReminders.map((schedule) => ({
-            description: `${schedule.vehicle.plateNumber} · due ${formatDate(schedule.dueDate)}`,
-            id: schedule.id,
-            status: schedule.status,
-            title: schedule.service,
-            tone: getStatusTone(schedule.status),
+          emptyDescription="Active service types for the assigned vehicle will appear here."
+          emptyTitle="No service calculations"
+          eyebrow="Mileage-based maintenance"
+          items={dashboard.maintenanceReminders.map((reminder) => ({
+            description:
+              reminder.status === "NO_HISTORY"
+                ? `${formatNumber(reminder.currentMileage)} km current · no completed-service history`
+                : `${formatNumber(reminder.currentMileage)} km current · ${formatNumber(reminder.lastCompletedServiceMileage ?? 0)} km last · ${formatNumber(reminder.recommendedIntervalKm)} km interval · ${formatNumber(reminder.nextServiceMileage ?? 0)} km next · ${formatNumber(reminder.remainingDistance ?? 0)} km remaining`,
+            id: `${reminder.vehicleId}-${reminder.serviceTypeId}`,
+            status: reminder.status.replace("_", " "),
+            title: reminder.service,
+            tone: getStatusTone(reminder.status),
           }))}
-          title="Maintenance reminders"
+          title="Service mileage status"
         />
         <DashboardList
           emptyDescription="Mileage submitted by this driver will appear here."

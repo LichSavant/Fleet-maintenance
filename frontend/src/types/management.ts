@@ -5,6 +5,7 @@ import type {
   User,
   UserStatus,
   Vehicle,
+  VehicleServiceMileageStatus,
   VehicleAssignment,
   VehicleStatus,
 } from "./fleet";
@@ -104,7 +105,6 @@ export interface MechanicManagementRecord {
 
 export interface VehicleManagementRecord {
   assignedDriver?: User;
-  lastServiceDate?: string;
-  nextServiceDate?: string;
+  serviceStatuses: readonly VehicleServiceMileageStatus[];
   vehicle: Vehicle;
 }

@@ -8,12 +8,12 @@ export type VehicleStatus =
 export type AssignmentStatus = "Active" | "Ended";
 export type WorkOrderStatus =
   "scheduled" | "assigned" | "in_progress" | "completed" | "cancelled";
-export type ScheduleStatus = "Overdue" | "Upcoming" | "Converted" | "Cancelled";
+export type ScheduleStatus = "Planned" | "Converted" | "Cancelled";
 export type Priority = "Low" | "Medium" | "High";
 export type NotificationType =
   "Assignment" | "Maintenance" | "Mileage" | "Reminder" | "Schedule" | "System";
 export type MileageMaintenanceStatus =
-  "not_due" | "due_soon" | "due_now" | "overdue";
+  "UPCOMING" | "DUE_SOON" | "DUE_NOW" | "OVERDUE" | "NO_HISTORY";
 export type AuditEntityType =
   | "assignment"
   | "maintenance_history"
@@ -93,9 +93,10 @@ export interface VehicleServiceMileageStatus {
   vehicleId: string;
   serviceTypeId: string;
   currentMileage: number;
-  lastServiceMileage: number | null;
-  nextServiceMileage: number;
-  dueSoonMileage: number;
+  lastCompletedServiceMileage: number | null;
+  recommendedIntervalKm: number;
+  nextServiceMileage: number | null;
+  remainingDistance: number | null;
   status: MileageMaintenanceStatus;
 }
 
@@ -134,11 +135,7 @@ export interface MaintenanceHistoryRecord {
   notes: string;
 }
 
-/**
- * Existing date-based planning record retained for current route compatibility.
- * It is distinct from completed maintenance history and will be aligned with
- * mileage-based due calculations in a later implementation stage.
- */
+/** Manual planning metadata. Its date never determines mileage-based urgency. */
 export interface MaintenanceSchedule {
   id: string;
   vehicleId: string;

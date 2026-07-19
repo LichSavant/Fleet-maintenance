@@ -264,7 +264,7 @@ describe("shared frontend features", () => {
           userId: "fleet-user-driver-maya",
         }),
         expect.objectContaining({
-          type: "Reminder",
+          type: "Schedule",
           userId: "demo-user-driver",
         }),
         expect.objectContaining({
@@ -353,5 +353,12 @@ describe("shared frontend features", () => {
       label: "Submissions",
       value: data.mileageLogs.length,
     });
+    expect(
+      reports.serviceDueSummary.reduce((total, item) => total + item.value, 0),
+    ).toBe(reports.serviceMileageStatuses.length);
+    expect(reports.serviceMileageStatuses).toHaveLength(
+      data.vehicles.length *
+        data.serviceTypes.filter((item) => item.status === "Active").length,
+    );
   });
 });

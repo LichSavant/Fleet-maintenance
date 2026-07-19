@@ -3,7 +3,7 @@ import { DashboardMetric } from "../../components/common/DashboardMetric";
 import { PageHeader } from "../../components/layout/PageHeader";
 import { useAuth } from "../../hooks/useAuth";
 import { dashboardService } from "../../services/dashboardService";
-import { formatDate } from "../../utils/formatDate";
+import { formatDate, formatNumber } from "../../utils/formatDate";
 import { formatStatus } from "../../utils/formatStatus";
 import { getStatusTone } from "../../utils/statusTone";
 
@@ -50,7 +50,7 @@ export default function MechanicDashboardPage() {
           emptyTitle="No assigned work"
           eyebrow="Work queue"
           items={dashboard.assignedWork.map((record) => ({
-            description: `${record.vehicle.plateNumber} · scheduled ${formatDate(record.scheduledDate)}`,
+            description: `${record.vehicle.plateNumber} · planned ${formatDate(record.scheduledDate)} · ${record.mileageStatus ? `${formatStatus(record.mileageStatus.status)} (${record.mileageStatus.remainingDistance === null ? "no history" : `${formatNumber(record.mileageStatus.remainingDistance)} km remaining`})` : "mileage status unavailable"}`,
             id: record.id,
             status: formatStatus(record.status),
             title: record.service,

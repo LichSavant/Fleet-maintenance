@@ -40,8 +40,9 @@ import {
 } from "./fleetStateMigration";
 import { mileageService } from "./mileageService";
 
-const STORAGE_KEY = "forgefleet.frontend.fleet-data.v3";
-const LEGACY_STORAGE_KEY = "forgefleet.frontend.fleet-data.v2";
+const STORAGE_KEY = "forgefleet.frontend.fleet-data.v4";
+const LEGACY_STORAGE_KEY = "forgefleet.frontend.fleet-data.v3";
+const OLDER_STORAGE_KEY = "forgefleet.frontend.fleet-data.v2";
 const DEMO_DELAY_MS = 120;
 const DATA_CHANGED_EVENT = "forgefleet:data-changed";
 
@@ -78,18 +79,20 @@ function readData(): MutableFleetData {
       removeStoredValue(STORAGE_KEY);
     }
 
-    const legacyRaw = window.localStorage.getItem(LEGACY_STORAGE_KEY);
-    if (legacyRaw) {
-      const migrated = readStoredFleetState(JSON.parse(legacyRaw) as unknown);
-      if (migrated) {
-        window.localStorage.setItem(
-          STORAGE_KEY,
-          JSON.stringify(createStoredFleetState(migrated)),
-        );
-        removeStoredValue(LEGACY_STORAGE_KEY);
-        return cloneData(migrated);
+    for (const legacyKey of [LEGACY_STORAGE_KEY, OLDER_STORAGE_KEY]) {
+      const legacyRaw = window.localStorage.getItem(legacyKey);
+      if (legacyRaw) {
+        const migrated = readStoredFleetState(JSON.parse(legacyRaw) as unknown);
+        if (migrated) {
+          window.localStorage.setItem(
+            STORAGE_KEY,
+            JSON.stringify(createStoredFleetState(migrated)),
+          );
+          removeStoredValue(legacyKey);
+          return cloneData(migrated);
+        }
+        removeStoredValue(legacyKey);
       }
-      removeStoredValue(LEGACY_STORAGE_KEY);
     }
   } catch {
     removeStoredValue(STORAGE_KEY);
@@ -115,6 +118,7 @@ function writeData(data: MutableFleetData) {
 export const FLEET_STORAGE_KEYS = {
   current: STORAGE_KEY,
   legacy: LEGACY_STORAGE_KEY,
+  legacyV2: OLDER_STORAGE_KEY,
   version: FLEET_STATE_VERSION,
 } as const;
 
@@ -875,7 +879,7 @@ export const fleetDataService = {
       notes: input.notes.trim(),
       requestedByUserId: actorUserId,
       serviceTypeId: serviceType.id,
-      status: input.dueDate < today() ? "Overdue" : "Upcoming",
+      status: "Planned",
       vehicleId: vehicle.id,
       workOrderId: null,
     };
@@ -891,10 +895,10 @@ export const fleetDataService = {
       : undefined;
     if (assignedDriver) {
       addNotification(data, {
-        message: `${serviceType.name} for ${vehicle.fleetNumber} is scheduled for ${input.dueDate}.`,
-        relatedRoute: "/driver/mileage",
-        title: "Upcoming maintenance reminder",
-        type: "Reminder",
+        message: `${serviceType.name} for ${vehicle.fleetNumber} was manually planned for ${input.dueDate}.`,
+        relatedRoute: "/driver/maintenance",
+        title: "Maintenance plan created",
+        type: "Schedule",
         userId: assignedDriver.userId,
       });
     }
@@ -1417,8 +1421,8 @@ export const fleetDataService = {
       const serviceType = data.serviceTypes.find(
         (item) => item.id === threshold.serviceTypeId,
       );
-      if (!serviceType) return;
-      const statusLabel = threshold.status.replace("_", " ");
+      if (!serviceType || threshold.nextServiceMileage === null) return;
+      const statusLabel = threshold.status.replaceAll("_", " ");
       addNotification(data, {
         message: `${vehicle.fleetNumber} is ${statusLabel} for ${serviceType.name}. The next service mileage is ${threshold.nextServiceMileage.toLocaleString()} km.`,
         relatedRoute: "/driver/mileage",
@@ -1502,6 +1506,7 @@ export const fleetDataService = {
   resetForTests() {
     window.localStorage.removeItem(STORAGE_KEY);
     window.localStorage.removeItem(LEGACY_STORAGE_KEY);
+    window.localStorage.removeItem(OLDER_STORAGE_KEY);
   },
 };
 

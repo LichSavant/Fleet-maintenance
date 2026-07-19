@@ -200,7 +200,7 @@ describe("fleetDataService", () => {
     ).toBe("Out of Service");
   });
 
-  it("migrates valid v2 browser data into the canonical v3 state", () => {
+  it("migrates valid v2 browser data into the canonical v4 state", () => {
     const legacyData = {
       assignments: [
         {
@@ -307,6 +307,41 @@ describe("fleetDataService", () => {
       driverId: "legacy-driver-profile",
       odometerReading: 12000,
     });
+    expect(
+      window.localStorage.getItem(FLEET_STORAGE_KEYS.current),
+    ).not.toBeNull();
+    expect(window.localStorage.getItem(FLEET_STORAGE_KEYS.legacy)).toBeNull();
+  });
+
+  it("migrates v3 date-derived schedule statuses to manual plans", () => {
+    const version3Data = structuredClone(fleetDataService.getSnapshot());
+    version3Data.maintenanceSchedules[0].status = "Planned";
+    const legacySchedule = {
+      ...version3Data.maintenanceSchedules[0],
+      status: "Overdue",
+    };
+    const legacyData = {
+      ...version3Data,
+      maintenanceSchedules: [
+        legacySchedule,
+        ...version3Data.maintenanceSchedules.slice(1).map((schedule) => ({
+          ...schedule,
+          status: "Upcoming",
+        })),
+      ],
+    };
+    window.localStorage.setItem(
+      FLEET_STORAGE_KEYS.legacy,
+      JSON.stringify({ data: legacyData, version: 3 }),
+    );
+
+    const migrated = fleetDataService.getSnapshot();
+
+    expect(
+      migrated.maintenanceSchedules.every(
+        (schedule) => schedule.status === "Planned",
+      ),
+    ).toBe(true);
     expect(
       window.localStorage.getItem(FLEET_STORAGE_KEYS.current),
     ).not.toBeNull();

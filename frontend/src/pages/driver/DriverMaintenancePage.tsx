@@ -1,5 +1,6 @@
 import { ErrorState } from "../../components/common/ErrorState";
 import { ManagementLoadingState } from "../../components/common/ManagementLoadingState";
+import { ServiceMileageTable } from "../../components/common/ServiceMileageTable";
 import { PageHeader } from "../../components/layout/PageHeader";
 import { Card } from "../../components/ui/Card";
 import { StatusBadge } from "../../components/ui/StatusBadge";
@@ -61,9 +62,12 @@ export default function DriverMaintenancePage() {
           </p>
         )}
       </Card>
-      <Card eyebrow="Planning" title="Maintenance reminders">
+      <Card eyebrow="Odometer-based" title="Maintenance reminders">
+        <ServiceMileageTable data={data} rows={maintenance.serviceStatuses} />
+      </Card>
+      <Card eyebrow="Manual planning" title="Service plans">
         <Table
-          caption="Maintenance reminders for the assigned vehicle"
+          caption="Manually selected service dates for the assigned vehicle"
           columns={[
             {
               header: "Service",
@@ -71,7 +75,7 @@ export default function DriverMaintenancePage() {
               render: ({ serviceType }) => serviceType.name,
             },
             {
-              header: "Scheduled date",
+              header: "Planned date",
               key: "date",
               render: ({ schedule }) => formatDate(schedule.dueDate),
             },
@@ -85,8 +89,8 @@ export default function DriverMaintenancePage() {
               ),
             },
           ]}
-          emptyDescription="Scheduled maintenance for your assigned vehicle will appear here."
-          emptyTitle="No maintenance reminders"
+          emptyDescription="A manager's manually selected service dates will appear here. These dates do not determine mileage status."
+          emptyTitle="No service plans"
           getRowKey={({ schedule }) => schedule.id}
           rows={maintenance.schedules}
         />
@@ -101,7 +105,7 @@ export default function DriverMaintenancePage() {
               render: ({ serviceType }) => serviceType.name,
             },
             {
-              header: "Scheduled date",
+              header: "Planned date",
               key: "date",
               render: ({ workOrder }) => formatDate(workOrder.scheduledDate),
             },

@@ -1,4 +1,5 @@
 import type { FleetState, ServiceType, User, Vehicle } from "../types/fleet";
+import { mileageService } from "./mileageService";
 
 function getUser(data: FleetState, userId: string) {
   return data.users.find((user) => user.id === userId);
@@ -161,13 +162,23 @@ export const operationsViewService = {
     const vehicle = assignment
       ? data.vehicles.find((item) => item.id === assignment.vehicleId)
       : undefined;
-    if (!vehicle) return { schedules: [], vehicle: undefined, workOrders: [] };
+    if (!vehicle)
+      return {
+        schedules: [],
+        serviceStatuses: [],
+        vehicle: undefined,
+        workOrders: [],
+      };
     return {
       schedules: getSchedules(data).filter(
         ({ schedule }) =>
           schedule.vehicleId === vehicle.id &&
           schedule.status !== "Cancelled" &&
           schedule.status !== "Converted",
+      ),
+      serviceStatuses: mileageService.getVehicleServiceStatuses(
+        data,
+        vehicle.id,
       ),
       vehicle,
       workOrders: getWorkOrders(data).filter(

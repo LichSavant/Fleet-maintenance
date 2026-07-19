@@ -5,14 +5,15 @@ import type {
   VehicleServiceMileageStatus,
 } from "../types/fleet";
 
-/** The due-soon window is the final 10% of a service interval. */
-export const DUE_SOON_INTERVAL_RATIO = 0.1;
+/** One centralized threshold for every mileage-based service calculation. */
+export const DUE_SOON_THRESHOLD_KM = 1000;
 
 const STATUS_RANK: Record<MileageMaintenanceStatus, number> = {
-  not_due: 0,
-  due_soon: 1,
-  due_now: 2,
-  overdue: 3,
+  NO_HISTORY: 0,
+  UPCOMING: 1,
+  DUE_SOON: 2,
+  DUE_NOW: 3,
+  OVERDUE: 4,
 };
 
 function byLatestReading(left: MileageLog, right: MileageLog) {
@@ -22,15 +23,11 @@ function byLatestReading(left: MileageLog, right: MileageLog) {
   );
 }
 
-function getStatus(
-  currentMileage: number,
-  dueSoonMileage: number,
-  nextServiceMileage: number,
-): MileageMaintenanceStatus {
-  if (currentMileage > nextServiceMileage) return "overdue";
-  if (currentMileage === nextServiceMileage) return "due_now";
-  if (currentMileage >= dueSoonMileage) return "due_soon";
-  return "not_due";
+function getStatus(remainingDistance: number): MileageMaintenanceStatus {
+  if (remainingDistance < 0) return "OVERDUE";
+  if (remainingDistance === 0) return "DUE_NOW";
+  if (remainingDistance <= DUE_SOON_THRESHOLD_KM) return "DUE_SOON";
+  return "UPCOMING";
 }
 
 export const mileageService = {
@@ -60,33 +57,46 @@ export const mileageService = {
           )
           .sort(
             (left, right) =>
-              right.odometerAtService - left.odometerAtService ||
-              right.serviceDate.localeCompare(left.serviceDate),
+              right.serviceDate.localeCompare(left.serviceDate) ||
+              right.odometerAtService - left.odometerAtService,
           )[0];
-        const lastServiceMileage = latestHistory?.odometerAtService ?? null;
-        const intervalStart = lastServiceMileage ?? 0;
+        const lastCompletedServiceMileage =
+          latestHistory?.odometerAtService ?? null;
+
+        if (lastCompletedServiceMileage === null) {
+          return {
+            currentMileage: effectiveMileage,
+            lastCompletedServiceMileage: null,
+            nextServiceMileage: null,
+            recommendedIntervalKm: serviceType.recommendedIntervalKm,
+            remainingDistance: null,
+            serviceTypeId: serviceType.id,
+            status: "NO_HISTORY" as const,
+            vehicleId,
+          };
+        }
+
         const nextServiceMileage =
-          intervalStart + serviceType.recommendedIntervalKm;
-        const dueSoonMileage =
-          nextServiceMileage -
-          Math.ceil(
-            serviceType.recommendedIntervalKm * DUE_SOON_INTERVAL_RATIO,
-          );
+          lastCompletedServiceMileage + serviceType.recommendedIntervalKm;
+        const remainingDistance = nextServiceMileage - effectiveMileage;
 
         return {
           currentMileage: effectiveMileage,
-          dueSoonMileage,
-          lastServiceMileage,
+          lastCompletedServiceMileage,
           nextServiceMileage,
+          recommendedIntervalKm: serviceType.recommendedIntervalKm,
+          remainingDistance,
           serviceTypeId: serviceType.id,
-          status: getStatus(
-            effectiveMileage,
-            dueSoonMileage,
-            nextServiceMileage,
-          ),
+          status: getStatus(remainingDistance),
           vehicleId,
         };
       });
+  },
+
+  getFleetServiceStatuses(data: FleetState) {
+    return data.vehicles.flatMap((vehicle) =>
+      mileageService.getVehicleServiceStatuses(data, vehicle.id),
+    );
   },
 
   getCrossedServiceThresholds(
@@ -100,7 +110,7 @@ export const mileageService = {
     return after.filter((current) => {
       const previous = previousByServiceType.get(current.serviceTypeId);
       return (
-        current.status !== "not_due" &&
+        !["NO_HISTORY", "UPCOMING"].includes(current.status) &&
         (!previous ||
           STATUS_RANK[current.status] > STATUS_RANK[previous.status])
       );

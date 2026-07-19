@@ -36,6 +36,8 @@ describe("dashboardService", () => {
           record.status !== "completed" && record.status !== "cancelled",
       ).length,
     );
+    expect(dashboard.serviceAttention).toBe(0);
+    expect(dashboard.serviceHistoryGaps).toBeGreaterThan(0);
   });
 
   it("associates the manager dashboard with the signed-in manager", () => {
@@ -48,6 +50,16 @@ describe("dashboardService", () => {
         (assignment) => assignment.status === "Active",
       ).length,
     );
+    expect(dashboard.serviceMileageStatuses).toHaveLength(
+      MOCK_FLEET_DATA.vehicles.length *
+        MOCK_FLEET_DATA.serviceTypes.filter((item) => item.status === "Active")
+          .length,
+    );
+    expect(
+      dashboard.serviceMileageStatuses.every(
+        (item) => item.currentMileage === item.vehicle.currentMileage,
+      ),
+    ).toBe(true);
   });
 
   it("limits mechanic work to the signed-in mechanic profile", () => {
@@ -84,6 +96,17 @@ describe("dashboardService", () => {
         (submission) => submission.driverId === dashboard.driverProfile?.id,
       ),
     ).toBe(true);
+    expect(
+      dashboard.maintenanceReminders.every(
+        (item) => item.vehicleId === dashboard.assignedVehicle?.id,
+      ),
+    ).toBe(true);
+    expect(dashboard.maintenanceReminders).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ status: "UPCOMING" }),
+        expect.objectContaining({ status: "NO_HISTORY" }),
+      ]),
+    );
   });
 
   it("returns only notifications addressed to the account or its role", () => {

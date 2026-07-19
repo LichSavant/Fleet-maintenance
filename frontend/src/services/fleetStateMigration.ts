@@ -15,7 +15,7 @@ import type {
   VehicleAssignment,
 } from "../types/fleet";
 
-export const FLEET_STATE_VERSION = 3 as const;
+export const FLEET_STATE_VERSION = 4 as const;
 
 export interface StoredFleetState {
   data: FleetState;
@@ -173,9 +173,7 @@ function isSchedule(value: unknown): value is MaintenanceSchedule {
     isStringOrNull(value.assignedMechanicId) &&
     isString(value.requestedByUserId) &&
     isString(value.dueDate) &&
-    ["Overdue", "Upcoming", "Converted", "Cancelled"].includes(
-      String(value.status),
-    ) &&
+    ["Planned", "Converted", "Cancelled"].includes(String(value.status)) &&
     isString(value.notes) &&
     isString(value.createdAt) &&
     isStringOrNull(value.workOrderId)
@@ -491,7 +489,10 @@ function migrateLegacyFleetData(value: unknown): FleetState | null {
       notes: String(schedule.notes ?? ""),
       requestedByUserId: String(schedule.createdByUserId ?? ""),
       serviceTypeId: String(schedule.serviceTypeId ?? ""),
-      status: schedule.status as MaintenanceSchedule["status"],
+      status:
+        schedule.status === "Converted" || schedule.status === "Cancelled"
+          ? schedule.status
+          : ("Planned" as MaintenanceSchedule["status"]),
       vehicleId: String(schedule.vehicleId ?? ""),
       workOrderId: (schedule.workOrderId ?? null) as string | null,
     }));
@@ -569,11 +570,31 @@ function migrateLegacyFleetData(value: unknown): FleetState | null {
   }
 }
 
+function migrateVersion3FleetData(value: unknown): FleetState | null {
+  if (!isRecord(value) || !Array.isArray(value.maintenanceSchedules)) {
+    return null;
+  }
+  const migrated = {
+    ...value,
+    maintenanceSchedules: (value.maintenanceSchedules as UnknownRecord[]).map(
+      (schedule) => ({
+        ...schedule,
+        status:
+          schedule.status === "Converted" || schedule.status === "Cancelled"
+            ? schedule.status
+            : "Planned",
+      }),
+    ),
+  };
+  return isValidFleetState(migrated) ? migrated : null;
+}
+
 export function readStoredFleetState(value: unknown): FleetState | null {
   if (!isRecord(value) || !isFiniteNumber(value.version)) return null;
   if (value.version === FLEET_STATE_VERSION) {
     return isValidFleetState(value.data) ? value.data : null;
   }
+  if (value.version === 3) return migrateVersion3FleetData(value.data);
   if (value.version === 2) return migrateLegacyFleetData(value.data);
   return null;
 }
