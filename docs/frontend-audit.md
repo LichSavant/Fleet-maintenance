@@ -1,281 +1,314 @@
 # ForgeFleet frontend audit
 
-Audit date: 2026-07-18  
-Original source inspected (read-only): `C:\Users\dhanwil\OneDrive\Desktop\Im2`  
-Target project: `C:\Users\dhanwil\OneDrive\Desktop\ForgeFleet`
+Audit date: 2026-07-19
 
-## Scope and verification
+Repository: `https://github.com/LichSavant/Fleet-maintenance.git`
 
-The source path is accessible and contains `package.json`, `src/`, `public/`, `vite.config.js`, React JSX components, CSS Modules, global CSS, and a Vite entry point. It is therefore a valid React/Vite reference project. The same folder also contains PHP/MySQL migration artifacts (`*.php`, `includes/`, `database/`, role directories, and static `assets/`). Those artifacts are not part of the React/Vite visual source audited here and must not be mistaken for the requested new frontend. Nothing in the source was modified.
+Branch: `frontend-rebuild`
 
-## 1. Original technology stack
+## 2026-07-19 completion update
 
-| Area           | Finding                                                                                                                                                                          |
-| -------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Framework      | React 19.2.7 and React DOM 19.2.7                                                                                                                                                |
-| Build tool     | Vite 8.1.3 with `@vitejs/plugin-react` 6.0.3                                                                                                                                     |
-| Languages      | JavaScript ES modules, JSX, HTML5, CSS3, JSON package metadata. No TypeScript or TSX was found.                                                                                  |
-| Entry flow     | `index.html` -> `src/main.jsx` -> `src/App.jsx`; React Strict Mode, `BrowserRouter`, and `UIProvider` wrap the application.                                                      |
-| Routing        | React Router DOM 7.18.1 using `BrowserRouter`, nested `Routes`, `Outlet`, `Navigate`, `Link`, and `NavLink`; pages are lazy-loaded with `React.lazy`/`Suspense`.                 |
-| Styling        | `src/styles/tokens.css`, `src/styles/global.css`, `src/App.module.css`, and per-component/per-page CSS Modules. No CSS framework, preprocessor, utility framework, or CSS-in-JS. |
-| Icons          | `lucide-react` 1.23.0, rendered as React-generated inline SVG.                                                                                                                   |
-| Charts         | Recharts 3.9.2 with responsive containers, bar, line/area, pie/donut, axes, grid, tooltip, and legend primitives.                                                                |
-| Animation      | Framer Motion 12.42.2 for page entry, metric-card hover, and notification presence; CSS transitions provide other states.                                                        |
-| State          | Component hooks plus `src/context/UIContext.jsx` for collapsed sidebar, mobile navigation, and transient notification state. No Redux or other store.                            |
-| Fonts          | Inter through `@fontsource/inter`, weights 400, 500, 600, 700, 800, and 900.                                                                                                     |
-| Storage        | No React-source use of `localStorage`, `sessionStorage`, IndexedDB, or cookies.                                                                                                  |
-| Mock data      | Static exports in `src/data/fleetData.js`; placeholder route rows in `src/pages/ShellPlaceholderPage.jsx`.                                                                       |
-| API calls      | No `fetch`, Axios, GraphQL, WebSocket, or REST client code found in the React source.                                                                                            |
-| Authentication | Visual-only login. Submit is prevented; sign-in/reset/Google/contact actions show transient placeholder messages. No route guard.                                                |
-| Authorization  | None. Navigation and routes are not role-aware.                                                                                                                                  |
+The audit below is the historical assessment that guided the rebuild. All legacy paths mentioned in that assessment are now relative to `legacy-static/`. The archived static implementation is preserved there and is no longer the active application.
 
-Relevant dependencies are React, React DOM, React Router DOM, Recharts, Lucide React, Framer Motion, Fontsource Inter, Vite, and the Vite React plugin. The new static frontend will need native DOM equivalents, local icons/fonts, and Chart.js only where chart parity requires it.
+The active application is `frontend/`, using React, Vite, strict TypeScript, React Router, plain CSS, Vitest, Testing Library, ESLint, and Prettier. Final integration review confirmed:
 
-## 2. Pages and routes
+- One shared authenticated layout and typed role-navigation configuration.
+- Session restoration, signed-out redirects, cross-role protection, and functional sign out.
+- Session-derived driver and mechanic profiles with no seeded current-account IDs in React pages.
+- Linked self-service registration for Driver and Mechanic credentials, fleet users, and role profiles.
+- Centralized browser persistence, relationship validation, work-order transitions, mileage validation, action-generated notifications, and data-derived reports.
+- Accessible labeled forms, semantic controls, text-bearing statuses, focus-visible styling, focus-trapped dialogs and mobile navigation, and contained table overflow.
+- Responsive rendered review at approximately 360, 768, 1024, and 1440 pixels with no application console errors.
+- Removal of obsolete design-system, authentication-layout, dashboard-layout, and home scaffold preview pages from the production router.
+- No import or asset dependency from `frontend/` to `legacy-static/`.
 
-All current application-shell routes are visible to every visitor. Role labels below are migration recommendations based on the requested role set, not implemented security.
+Remaining limitations are deliberate frontend-only constraints: browser-readable credentials and data, client-side authorization, no cross-device or cross-tab record synchronization, no concurrency control, no password change or recovery delivery, and no server-generated notifications, audit log, or reporting.
 
-| Route                  | Source / title                               | Main UI and controls                                                                                                                | Data and status                                                                     | Recommended destination                                                                |
-| ---------------------- | -------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
-| `/`                    | `src/App.jsx`; redirect                      | Redirects to `/dashboard`                                                                                                           | Complete client redirect                                                            | `index.html`                                                                           |
-| `/login`               | `LoginPage.jsx`; sign in                     | Hero image, logo lockup, email/password inputs, remember checkbox, forgot-password, sign-in, Google sign-in, contact-admin controls | Static; **visual only**; no validation/authentication                               | `login.html`                                                                           |
-| `/dashboard`           | `DashboardPage.jsx`; Command Center          | Metric cards, hero vehicle, quick actions, four charts, work-order/mileage tables, reminders, activity, notifications               | Mock-data driven; view/navigation works; actions are placeholder notifications      | Role dashboard pages, beginning `admin/dashboard.html`                                 |
-| `/vehicles`            | `VehiclesPage.jsx`; Vehicle Registry         | Search input, filter/export/add controls, vehicle cards, registry table, detail links                                               | Mock-data driven; detail navigation works; search/filter/export/add are visual only | `admin/vehicles.html`, `manager/vehicles.html`                                         |
-| `/vehicles/:vehicleId` | `VehicleDetailsPage.jsx`; Vehicle Details    | Summary, health metrics, assignment panel, maintenance/mileage/reminder tables, edit/manage-assignment actions                      | Mock-data lookup works; unknown IDs show a not-found state; writes are placeholders | Admin/manager vehicle page or future shared detail page                                |
-| `/drivers`             | `ShellPlaceholderPage.jsx`; Driver Directory | Generic summary cards, table, add action                                                                                            | Three route-local mock rows; **placeholder/partially complete**                     | `admin/drivers.html`, `manager/drivers.html`                                           |
-| `/mileage-logs`        | `ShellPlaceholderPage.jsx`; Mileage Logs     | Generic summary cards, table, add action                                                                                            | Uses dashboard mock logs; **placeholder**                                           | `driver/mileage.html` plus authorized admin/manager view                               |
-| `/service-types`       | `ShellPlaceholderPage.jsx`; Service Types    | Generic summary cards, table, add action                                                                                            | Three route-local rows; **placeholder**                                             | `admin/service-types.html`                                                             |
-| `/maintenance`         | `src/App.jsx`; redirect                      | Redirects to `/maintenance-history`                                                                                                 | Complete redirect                                                                   | Appropriate role maintenance destination                                               |
-| `/maintenance-history` | `MaintenancePage.jsx`; Maintenance History   | Metrics, tabs, vehicle/service filters, clear filters, history/work-order tables, empty state, work-order/optimization controls     | Tabs and filters work in React state; CRUD actions are placeholders                 | `admin/maintenance.html`, `mechanic/maintenance.html`, `mechanic/service-history.html` |
-| `/reminders`           | `RemindersPage.jsx`; Reminder Console        | Reminder metrics, cards, status badges, add reminder                                                                                | Static mock data; add action is placeholder                                         | `driver/maintenance-reminders.html` and role-appropriate reminders                     |
-| `/reports`             | `ReportsPage.jsx`; Executive Reports         | Highlights, fleet health/utilization/cost charts, operational summary/status, filters/download                                      | Mock-data driven charts; filters and download are placeholders                      | `admin/reports.html`, `manager/reports.html`                                           |
-| `/users`               | `ShellPlaceholderPage.jsx`; User Management  | Generic summary cards, table, invite action                                                                                         | Three route-local mock users; **placeholder**                                       | `admin/users.html`                                                                     |
-| `/settings`            | `ShellPlaceholderPage.jsx`; System Settings  | Generic summary cards, table, configure action                                                                                      | Three route-local mock settings; **placeholder**                                    | No planned page yet; confirm whether needed                                            |
-| `*`                    | `src/App.jsx`                                | Redirects silently to dashboard                                                                                                     | No genuine 404 view                                                                 | `404.html`                                                                             |
+Audited commit: `27e5e7aca6a497047bf83e34e3e9719cce02ec3b`
 
-Not present as React routes: forgot password, audit log, assignments, schedules, mechanic task dashboard, mechanic notifications, driver-specific dashboard/assigned vehicle, profile, full notifications page, global search results, and explicit error pages. There are no hidden or role-prefixed routes.
+## Executive summary
 
-### Existing forms, tables, filters, and modals
+The repository currently contains a pure HTML5, CSS3, and browser JavaScript demonstration. It is not a React application: there is no `package.json`, Vite configuration, TypeScript configuration, JSX/TSX, module graph, or automated test runner. Public pages are separate HTML documents grouped by role. They fetch shared HTML partials and load global scripts that render page content into `#page-content`.
 
-- Forms: only the visual login form; it prevents submit and has no controlled state or validation.
-- Tables: reusable `Table` is used on dashboards, vehicles, vehicle details, maintenance, and placeholder routes.
-- Working filters: maintenance history vehicle and service selects, including clear/reset and an empty result state.
-- Visual-only filters/search: topbar search, vehicle search/filter, report filters.
-- Modals and confirmation dialogs: none found.
-- Sorting and pagination: none found.
+The prototype is more than a visual mock. It includes browser-local authentication, role redirects, management tables, CRUD modals, sorting, filtering, pagination, assignment conflict checks, mileage validation, notification read state, profile editing, settings persistence, report calculations, and CSV generation. These behaviors are useful requirements for the React rebuild, but the current browser storage and authorization model must remain demo-only.
 
-## 3. Shared React components
+The largest architectural issue is that the application has two competing dashboard systems. `src/scripts/app.js` renders most role dashboards from the normalized demo collections, while `admin/dashboard.html` uses `src/scripts/dashboard.js` and a second unrelated `ForgeFleetDashboard` dataset. The second system duplicates its own shell, navigation, search, profile, notification, charts, and user presentation. It also hardcodes the displayed current account and permanent dashboard counts.
 
-| Component            | Original source/style                                 | Used by                        | Behavior                                                             | Static migration destination/responsibility                               |
-| -------------------- | ----------------------------------------------------- | ------------------------------ | -------------------------------------------------------------------- | ------------------------------------------------------------------------- |
-| App shell            | `components/layout/AppShell.jsx` / module             | All authenticated-style routes | Shell grid, overlay, content outlet, notification host               | `components/sidebar.html`, `topbar.html`, loader in `component-loader.js` |
-| Sidebar              | `layout/Sidebar.jsx` / module                         | Shell                          | NavLink active state, collapse toggle, mobile close, Escape handling | `components/sidebar.html`; `navigation.js`                                |
-| Topbar               | `layout/Topbar.jsx` / module                          | Shell                          | Mobile/collapse menu, search, create, notification, profile controls | `components/topbar.html`; `navigation.js`/`app.js`                        |
-| Profile dropdown     | `layout/ProfileDropdown.jsx` / module                 | Topbar                         | Toggle, outside-click close, placeholder menu actions                | Topbar partial; reusable dropdown controller                              |
-| Breadcrumb           | `layout/Breadcrumb.jsx` / module                      | Page container                 | Route metadata and vehicle-detail hierarchy                          | Shared page-header markup; navigation metadata                            |
-| Page title/container | `layout/PageTitle.jsx`, `PageContainer.jsx` / modules | Shell pages                    | Route-derived title/subtitle and outlet spacing                      | Layout CSS and component loader configuration                             |
-| Page transition      | `animation/PageTransition.jsx` / module               | All bespoke pages              | Framer Motion opacity/Y entry                                        | CSS animation with reduced-motion rule                                    |
-| Button               | `ui/Button.jsx` / module                              | Most pages/components          | Variants, sizes, icon-only state, disabled passthrough               | Shared `.button` classes; normal listeners                                |
-| Input                | `ui/Input.jsx` / module                               | Login, vehicle search          | Label, icon, input props                                             | Shared form classes and validation utility                                |
-| Card                 | `ui/Card.jsx` / module                                | Most content pages             | Optional eyebrow/title/action slots                                  | Shared `.card` component classes                                          |
-| Metric card          | `ui/MetricCard.jsx` / module                          | Dashboard/details/maintenance  | Tone, icon, delta, hover animation                                   | Statistic-card classes; renderer utility                                  |
-| Hero vehicle card    | `ui/HeroVehicleCard.jsx` / module                     | Dashboard                      | Vehicle facts, hero image, detail navigation                         | Dashboard page markup/renderer                                            |
-| Vehicle card         | `ui/VehicleCard.jsx` / module                         | Vehicles                       | Summary, status, detail link, action trigger                         | Reusable vehicle-card renderer                                            |
-| Table                | `ui/Table.jsx` / module                               | Many pages                     | Column-driven table, optional status badge rendering                 | Shared semantic table renderer/classes                                    |
-| Status badge         | `ui/StatusBadge.jsx` / module                         | Tables/cards/reports           | Maps status strings to tones                                         | Shared badge classes and normalized status map                            |
-| Search bar           | `ui/SearchBar.jsx` / module                           | Topbar                         | Presentational input only                                            | Topbar partial and search controller                                      |
-| Notification/toast   | `ui/Notification.jsx` / module                        | App shell                      | Context-driven timed placeholder toast with animation                | `components/toast-container.html`; `toast.js`                             |
-| Notification list    | `ui/NotificationList.jsx` / module                    | Dashboard                      | Read-only notification rows and badges                               | Notification list renderer                                                |
-| Reminder card        | `ui/ReminderCard.jsx` / module                        | Dashboard/reminders            | Read-only level/status display                                       | Shared card renderer                                                      |
-| Quick action card    | `ui/QuickActionCard.jsx` / module                     | Dashboard                      | Button invokes callback                                              | Dashboard controller                                                      |
-| Activity timeline    | `ui/ActivityTimeline.jsx` / module                    | Dashboard                      | Read-only timeline                                                   | Shared timeline classes/renderer                                          |
-| Stat circle          | `ui/StatCircle.jsx` / module                          | Maintenance/reminders          | Circular statistic visualization                                     | Shared statistic component classes                                        |
-| Avatar               | `ui/Avatar.jsx` / module                              | Profile dropdown               | Initials from name                                                   | Topbar/profile renderer                                                   |
-| Charts               | `charts/*.jsx` and two chart modules                  | Dashboard/reports              | Responsive Recharts plots and custom tooltip                         | Page chart controllers; Chart.js only if needed                           |
+## 1. Repository and toolchain
 
-No reusable modal, pagination, tabs, alert, full error-state, form-select, or confirmation-dialog component exists. Maintenance tabs and selects are page-specific.
+| Area            | Current state                                                                      |
+| --------------- | ---------------------------------------------------------------------------------- |
+| Git             | Clean repository on `frontend-rebuild`, created from `main` commit `27e5e7a`       |
+| Framework       | None; static multi-page HTML                                                       |
+| Language        | HTML, CSS, and classic browser JavaScript IIFEs                                    |
+| Package manager | None configured                                                                    |
+| Build system    | None                                                                               |
+| Type system     | None                                                                               |
+| Routing         | File paths, redirects, and `location.replace`                                      |
+| Tests           | Documentation and ad hoc syntax/service checks; no executable test suite           |
+| Persistence     | `localStorage` for records/preferences and `sessionStorage` for the active session |
+| Backend/API     | None                                                                               |
 
-## 4. Navigation structure
+All manually written source is currently formatted and readable. No empty files or compressed one-line source files were found.
 
-Sidebar order is Dashboard, Vehicles, Drivers, Mileage Logs, Service Types, Maintenance History, Reports, Reminders, Users, and Settings. Each item supplies an icon, title, subtitle, and route in `src/data/navigation.js`. `NavLink` applies active styling; `/vehicles` also remains visually active on vehicle-detail routes. The sidebar footer contains a collapse/expand button.
+## 2. Current structure and entry flow
 
-The topbar contains a menu control, global search, New Maintenance Action, notifications with a dot, and a profile dropdown. The profile menu exposes Profile, Access Controls, and Sign Out, but all are placeholders. On desktop the menu control toggles the 286px/92px sidebar. At mobile width it opens an overlay drawer. Escape and overlay click close the drawer. No role filtering, nested menus, notification route, or working logout exists.
+Root authentication and reference pages:
 
-## 5. Role visibility and permissions
+- `index.html` redirects to the sign-in page.
+- `login.html` is the public sign-in entry.
+- `signup.html` creates browser-local demonstration accounts.
+- `forgot-password.html` validates an email but explicitly does not send recovery mail.
+- `404.html` is a static not-found page.
+- `design-system.html` and `layout-test.html` are reference/test pages rather than product routes.
 
-The React source implements no roles or permissions. The following is the requested frontend migration visibility baseline and must later be validated against business requirements. It is **display behavior only, not server security**.
+Role folders contain separate HTML entry documents:
 
-| Role     | Visible pages                                                                                                           | Intended visible actions                                                                                                                     |
-| -------- | ----------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
-| Admin    | Dashboard, users, vehicles/details, drivers, service types, maintenance, reports, audit, profile, notifications, search | View/create/edit/delete core records; search/filter; manage users and service types; export reports; read notifications; update profile      |
-| Manager  | Dashboard, vehicle/driver views, assignments, schedules, reports, profile, notifications, search                        | View/search/filter vehicles and drivers; create/edit/end assignments; create/edit/status schedules; export permitted reports; update profile |
-| Mechanic | Dashboard, assigned maintenance, service history, notifications, profile, search                                        | View assigned work; filter; add findings/work/notes; update progress; complete tasks after confirmation; read notifications; update profile  |
-| Driver   | Dashboard, assigned vehicle, mileage, maintenance reminders, notifications/profile                                      | View own assignment; submit mileage; view history/reminders; read notifications; update profile                                              |
+- `admin/`: audit, dashboard, drivers, maintenance, mileage logs, reminders, reports, service types, settings, users, and vehicles.
+- `manager/`: assignments, dashboard, drivers, maintenance redirect, reminders, reports, schedules, and vehicles.
+- `mechanic/`: dashboard, maintenance tasks, notifications, and service history.
+- `driver/`: assigned vehicle, dashboard, maintenance redirect, reminders, mileage, and notifications.
+- `shared/`: notifications, profile, and search.
 
-Approve, record ownership, delete scope, audit access, and cross-depot visibility are unverifiable. They require product-owner decisions and later server authorization.
+Each authenticated HTML page declares `data-page`, `data-role`, and `data-depth`, loads scripts in dependency order, fetches partials through `componentLoader.js`, initializes role navigation, and lets `app.js` render the main screen. The Administrator dashboard is the exception: it loads `dashboard.js`, which replaces the shared shell with its own implementation.
 
-## 6. Feature completion inventory
+## 3. Shared components and visual system
 
-| Feature                | Classification                       | Evidence                                                   |
-| ---------------------- | ------------------------------------ | ---------------------------------------------------------- |
-| Login                  | Visual only                          | Prevented submit, placeholder toast                        |
-| Logout                 | Visual only                          | Profile action shows placeholder                           |
-| Forgot password        | Missing                              | Button only; no route/page                                 |
-| Dashboard statistics   | Mock-data driven                     | Static constants, no calculated source                     |
-| Charts                 | Mock-data driven / visually complete | Recharts renders fixed arrays responsively                 |
-| Navigation             | Partially complete                   | SPA routes/collapse/mobile work; role/logout links do not  |
-| Search                 | Visual only                          | Inputs have no query handler                               |
-| Filters                | Partial                              | Maintenance filters work; vehicle/report filters do not    |
-| Sorting/pagination     | Missing                              | No implementation found                                    |
-| Modals/confirmations   | Missing                              | No modal component found                                   |
-| Forms/CRUD             | Visual only or missing               | No record mutation or persistence                          |
-| Notifications          | Partial/mock driven                  | Lists and transient toast; no read state/page              |
-| Profile                | Missing                              | Dropdown action only                                       |
-| Reports                | Partial/mock driven                  | Charts render; filters/download do not                     |
-| Audit logs             | Missing                              | No route/data/component                                    |
-| Mileage                | Placeholder                          | Generic table only                                         |
-| Assignments            | Visual only/missing                  | Vehicle detail summary/action; no workflow/model           |
-| Maintenance scheduling | Visual only                          | Quick actions/reminders; no schedule form/model            |
-| Service history        | Partial/mock driven                  | History table and filters work                             |
-| Error handling         | Partial                              | Vehicle not-found state exists; wildcard redirects, no 404 |
+Reusable partials:
 
-## 7. Mock data and structures
+| Partial                              | Responsibility                                          | Preserve for React                                           |
+| ------------------------------------ | ------------------------------------------------------- | ------------------------------------------------------------ |
+| `src/components/layout/Sidebar.html` | Brand, role navigation mount, reset, sign-out           | Preserve behavior and visual hierarchy                       |
+| `src/components/layout/Topbar.html`  | Mobile menu, global search, notifications, account menu | Preserve and consolidate with command-center variant         |
+| `src/components/layout/Footer.html`  | Prototype context                                       | Reassess; product shell may not need it                      |
+| `src/components/ui/Modal.html`       | Accessible dialog shell                                 | Preserve focus trap, Escape, backdrop, and focus restoration |
+| `src/components/ui/Toast.html`       | Live feedback container                                 | Preserve success/error feedback behavior                     |
 
-`src/data/fleetData.js` exports: `metrics`, `quickActions`, `fleetHealth`, `costByCategory`, `utilizationByDepot`, `dashboardHeroVehicle`, `fleetStats`, `vehicleStatusDistribution`, `monthlyMaintenanceCost`, `vehicles`, `vehicleMaintenanceRecords`, `vehicleMileageActivity`, `vehicleReminderRecords`, `workOrders`, `mileageLogs`, `reminders`, `activities`, `latestNotifications`, and `reportHighlights`.
+Useful design elements:
 
-Core implicit models:
+- Dark charcoal surfaces with restrained gold accent.
+- Inter font files in weights 400, 600, and 700, with license.
+- ForgeFleet maintenance-bay hero image.
+- CSS design tokens for color, spacing, radii, shadows, typography, shell sizes, and motion.
+- Strong login split-screen treatment.
+- Sidebar/topbar application shell and compact responsive patterns.
+- Cards, metric cards, semantic tables, badges, toolbars, forms, empty states, modal, toast, notification list, and pagination styles.
+- Visible focus treatments and reduced-motion rules.
+- Horizontal table overflow at narrow widths.
+- Administrator command-center hierarchy, trend chart treatment, attention strip, and dense operational presentation.
 
-- Vehicle: `id`, `name`, `type`, `depot`, `mileage`, `status`, `health`, `nextService`, `vin`, `driver`, `utilization`, `year`, `plate`.
-- Maintenance record: `id`, `vehicleId`, `service`, `completed`, `odometer`, `cost`, `status`.
-- Mileage activity/log: inconsistent shapes using `vehicleId` or `asset`, plus route, driver, miles, date/status.
-- Reminder: vehicle-specific records use `id`, `vehicleId`, title/due/level; dashboard reminders use a separate shape with `asset` and icon.
-- Work order: `id`, `asset`, `task`, `priority`, `owner`, `due`, `status`.
-- Placeholder rows: drivers, service types, users, and settings are embedded in `ShellPlaceholderPage.jsx`.
+Visual liabilities to avoid carrying forward:
 
-Identifiers are stable display strings (`FF-`, `MR-`, `ML-`, `RM-`, `WO-`) but there are no schemas or TypeScript interfaces. Relationships are denormalized; drivers and owners are names rather than IDs. Dates, costs, mileage, percentages, and durations are frequently preformatted strings. Status values include Ready, In Service, Inspection, Critical, Completed, Open, In Progress, Scheduled, Queued, High, Normal, and other route-specific values.
+- Two separate shell/dashboard design implementations.
+- Text glyphs used as navigation and action icons.
+- CSS-only donut graphics that do not accurately communicate underlying data.
+- Hardcoded Administrator command-center counts that conflict with the core dataset.
+- Large template strings that mix markup, data access, permissions, and event binding.
 
-Recommended later model: centralized normalized collections for roles, users, drivers, mechanics, managers, vehicles, assignments, service types, schedules, maintenance records/tasks, mileage logs, notifications, and audit logs. Use typed raw values and foreign-key-like IDs; calculate dashboard/report values from records. Stage 1 does not implement this model.
+## 4. Authentication and role handling
 
-No browser-storage keys, API payloads, or session keys exist in the React source.
+### Working behavior
 
-## 8. Asset inventory
+- Sign-in validates email and required password fields.
+- Active accounts authenticate against browser-local records.
+- Inactive accounts receive a distinct message.
+- The signed-in session stores user ID, name, email, role, and initials in `sessionStorage`.
+- Remember-email stores only the email address in `localStorage`.
+- Authenticated users visiting sign-in are redirected to their role dashboard.
+- Protected pages redirect signed-out users to login.
+- Cross-role page access redirects users to their own role dashboard.
+- Sign-out clears session and remembered email.
+- Registration validates required fields, email, phone, password strength, confirmation, role fields, terms, duplicate email, and driver license expiry.
+- Driver and mechanic registration creates linked role-profile records.
 
-| Asset                                | Original path                                          | Usage                                                  | Required / recommended destination                                   |
-| ------------------------------------ | ------------------------------------------------------ | ------------------------------------------------------ | -------------------------------------------------------------------- |
-| ForgeFleet maintenance-bay truck PNG | `src/assets/forgefleet-hero.png`                       | Login hero and dashboard hero vehicle card             | Required later: `assets/images/forgefleet-hero.png`                  |
-| Inter font files                     | Resolved from `node_modules/@fontsource/inter` imports | Global type, weights 400-900                           | Required later: licensed WOFF2 subsets in `assets/fonts/`            |
-| Lucide icons                         | Generated from `lucide-react`                          | Logo, navigation, controls, metrics, charts, status UI | Export only used local SVGs to `assets/icons/`; preserve stroke/size |
-| Logo                                 | ShieldCheck Lucide glyph plus ForgeFleet text          | Sidebar/login                                          | No standalone logo file exists; reconstruct from local SVG plus text |
-| Avatar                               | CSS/HTML initials (`FD`)                               | Profile trigger                                        | No image required                                                    |
-| Charts                               | Runtime Recharts SVG                                   | Dashboard/reports                                      | Recreate; no image asset to copy                                     |
+### Prototype-only or unsafe behavior
 
-`public/` is empty. No other React-source JPEG, WebP, standalone SVG, avatar, illustration, background image, or font file was found. The coexisting migration tree has copied image/font assets, but Stage 1 copies nothing.
+- Seeded and registered passwords are stored and compared as plaintext in browser-readable data.
+- Admin and Manager registration codes are shared constants in client JavaScript.
+- Route guards and permissions are frontend-only and can be bypassed by altering storage or calling exposed services.
+- Sessions are scoped to a browser tab and have no expiry, rotation, revocation, or integrity protection.
+- The login email blur handler enumerates known accounts by displaying their role.
+- Registration allows creation of privileged accounts when a visible shared code is entered.
+- Forgot-password cannot deliver email and is intentionally informational only.
 
-## 9. Design system inventory
+### Current-user hardcoding defects
 
-The canonical tokens are in `src/styles/tokens.css`; global reset/theme behavior is in `src/styles/global.css`. Component-specific exact values remain in each `*.module.css` and should be ported selectively during design extraction.
+The rebuild must not copy the following patterns:
 
-| Category   | Exact/discoverable values                                                           |
-| ---------- | ----------------------------------------------------------------------------------- |
-| Background | `#07090b`; secondary `#0f1215`; top-left gold radial gradient                       |
-| Surfaces   | `#13171b`, `#171c21`, `#1a2026`                                                     |
-| Text       | white `#ffffff`; muted `#9ca3af`; soft `#d1d5db`                                    |
-| Accent     | `#d6a85a`; hover `#e6bc74`                                                          |
-| Semantic   | success `#4ade80`; warning `#facc15`; danger `#ef4444`; info `#93c5fd`              |
-| Borders    | white at 6% and 12% opacity; component-specific accent/semantic alpha borders       |
-| Radius     | 12, 16, 20, 24px tokens; pills 999px; additional module-specific radii              |
-| Shadows    | card `0 24px 70px rgba(0,0,0,.34)`; subtle `0 12px 34px rgba(0,0,0,.22)`            |
-| Layout     | sidebar 286px; collapsed 92px; topbar 84px; content max 1680px                      |
-| Motion     | 160ms, 220ms, 420ms `ease`; Framer page/card/toast transforms                       |
-| Typography | Inter/system sans; weights 400-900; feature settings `cv02`, `cv03`, `cv04`, `cv11` |
+- Mechanic dashboard metrics filter against literal `MEC-001`.
+- Driver dashboard metrics filter against literal `DRV-001` and `VEH-001`.
+- The command-center dataset contains a hardcoded `currentUser` named “Fleet Director.”
+- The command-center topbar displays that static user instead of the authenticated session.
+- The command-center notification indicator is permanently `3` rather than derived from notification state.
 
-Body copy has zero letter spacing. Metadata/eyebrows use uppercase and module-specific tracking. Small text is approximately `.70rem`-`.98rem`; large headings use responsive `clamp()` values, reaching roughly 4-6.35rem in hero contexts. Common gaps range 6-28px and cards generally use 18-30px padding. Exact page values should be taken from their source modules rather than normalized.
+The assigned-vehicle page already demonstrates the correct direction: it resolves a driver by `session().id`, then finds that driver's active assignment and vehicle.
 
-Breakpoints discovered: 520, 560, 640, 720, 760, 980, 1024, 1100, 1180, 1280, 1320, and 1360px, plus `prefers-reduced-motion: reduce`. Focus, hover, active, and disabled states exist across navigation, buttons, fields, cards, rows, and dropdowns. Focus styling uses gold outline/shadow treatments.
+## 5. Navigation and routing
 
-## 10. Responsive behavior
+### Working behavior
 
-- Large/standard desktop: fixed shell sidebar, sticky 84px topbar, multi-column dashboard and report grids, content constrained to 1680px.
-- At 1360/1320/1280/1180px: vehicle, dashboard, report, detail, reminder, and topbar layouts reduce columns or spacing.
-- At 1100px: login changes from split layout; topbar hides/reduces secondary content.
-- At 1024px: shell spacing changes and sidebar uses compact behavior.
-- At 760px: sidebar becomes an overlay drawer, page grids/toolbars stack, content padding tightens, and mobile menu behavior activates.
-- At 640px and below: forms/cards/details stack; titles and card padding shrink; login becomes single-column; toast width is constrained.
-- Tables retain an internal horizontal scroll wrapper rather than becoming cards.
-- Recharts use `ResponsiveContainer`; charts resize with their panels.
-- Reduced-motion CSS suppresses page transition animation, though all motion behavior needs later verification.
+- Role-specific sidebar menus are generated from a centralized map.
+- Current routes receive `aria-current="page"` when the page identifier matches.
+- Mobile navigation opens and closes, including Escape handling.
+- Profile dropdown closes on outside click and Escape.
+- Global search navigates to the shared search page with an encoded query.
+- Authentication and sign-out redirects account for root versus nested page depth.
+- Unknown root paths have a real static 404 document when the host is configured to use it.
 
-## 11. React coupling and migration risks
+### Problems and inconsistencies
 
-| Risk                                             | Approach for static frontend                                                                                                         |
-| ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------ |
-| Router-derived shell metadata and active links   | Use `data-page`/`data-role`, a navigation map, and a shared component loader.                                                        |
-| CSS Module-scoped class names                    | Convert systematically to prefixed reusable classes while preserving declarations and DOM hierarchy.                                 |
-| Context-owned sidebar/toast state                | Replace with small shared DOM controllers and custom events.                                                                         |
-| Hook-driven maintenance tabs/filters             | Use page-specific listeners and pure render/filter functions.                                                                        |
-| Recharts SVG composition                         | Reproduce datasets, colors, axes, legends, tooltips, and responsive dimensions with Chart.js only if necessary.                      |
-| Framer Motion transitions                        | Use CSS transitions/keyframes and `prefers-reduced-motion`.                                                                          |
-| Lucide React icons                               | Export a minimal licensed local SVG set; avoid substituting unrelated glyphs.                                                        |
-| Route-local placeholder data                     | Move to centralized mock data; do not treat placeholder rows as complete requirements.                                               |
-| Formatted strings and denormalized relationships | Normalize raw values and IDs before localStorage and eventual SQL integration.                                                       |
-| Missing role model                               | Confirm permission matrix before exposing destructive actions; frontend hiding is not security.                                      |
-| Many inert controls                              | Track every action during interaction stages and provide a demo behavior or honest backend-required message.                         |
-| Accessibility gaps                               | Add form names/autocomplete, menu keyboard handling, robust labels, modal focus management, and real 404 semantics without redesign. |
-| Coexisting PHP migration files in reference      | Ignore as implementation source unless separately authorized; do not copy them into this frontend-only project.                      |
+- Navigation is file-path driven and depends on `data-depth` rather than a route model.
+- Administrator navigation uses `mileage-logs` while the page declares `data-page="mileage"`, so its active state does not match.
+- Administrator and Manager navigation use `reminders`, while those pages declare `maintenance-reminders`, so active state does not match.
+- Driver and Mechanic each have role-folder notification pages while the topbar points to a shared notification page, creating duplicate URLs for the same feature.
+- `driver/maintenance.html` and `manager/maintenance.html` are redirect aliases rather than substantive pages.
+- The Administrator dashboard has a separate hardcoded navigation array with destinations that differ from the shared role menu.
+- Static hosting must be configured manually; there is no SPA fallback or development/build configuration.
 
-## 12. Recommended build order
+## 6. Data model and browser storage
 
-1. Static scaffold and relative-path/component-loading test.
-2. Exact design-system extraction from tokens, global CSS, and CSS Modules.
-3. Shared sidebar/topbar/page shell, including desktop collapse and mobile drawer.
-4. Centralized normalized mock data and replaceable data-service interface.
-5. Login and forgot-password demonstration using the original login visuals.
-6. Admin dashboard, because it exercises the broadest card/table/chart system.
-7. Admin CRUD pages, starting with vehicles/details, then users, drivers, service types, maintenance, reports, audit.
-8. Manager views, assignments, schedules, and reports.
-9. Mechanic task workflow, service history, and notifications.
-10. Driver assignment, mileage, and reminders.
-11. Shared profile, notifications, search, and 404.
-12. Report filter/chart/export demonstrations after normalized data exists.
-13. Complete interaction and dead-control review.
-14. Responsive/accessibility verification at all prescribed widths.
-15. Visual regression against the React source.
-16. Functional testing and frontend freeze/backend handoff.
+The main demo dataset contains roles, users, drivers, mechanics, vehicles, assignments, service types, schedules, maintenance records, mileage logs, notifications, and audit logs. Core relationships use stable string IDs.
 
-The dependencies are deliberate: pages depend on the design system and shell; dashboards/reports depend on normalized data; role pages depend on the visibility map; and regression should occur only after interactions stabilize.
+Useful rules to preserve:
 
-## 13. PHP/MySQL integration preview
+- Normalized role/profile relationships through user IDs.
+- Unique generated display IDs per collection.
+- Duplicate-email checks.
+- Protection against deleting the signed-in user or final active Administrator.
+- Service-type deletion protection when referenced.
+- One active vehicle per driver and one active driver per vehicle.
+- Ending an assignment updates vehicle and driver state.
+- Mileage cannot go backward and duplicate vehicle/date entries are rejected.
+- Maintenance completion updates vehicle status.
+- Notifications can be scoped by user or role and marked read.
+- CSV cells beginning with spreadsheet formula characters are neutralized.
 
-Future backend work will require, at minimum:
+Limitations and defects:
 
-- PHP sessions, login/logout handlers, password-reset delivery, CSRF protection, and server route guards.
-- MySQL tables for roles, users, profiles, drivers, mechanics, managers, vehicles, vehicle assignments, service types, maintenance schedules, maintenance records/tasks, parts if retained, mileage logs, notifications/read state, and audit logs.
-- Server validation for every create/update action, typed dates/numbers/currency, unique email/plate/VIN constraints, assignment conflicts, monotonic mileage, and valid status transitions.
-- Server authorization for role, ownership/assignment, depot scope, record-level edit/delete/complete/export, and audit visibility.
-- Stable database IDs and foreign keys replacing display-name relationships.
-- Aggregate queries for dashboard metrics, report charts, filtered totals, maintenance cost, utilization, readiness, overdue work, and counts.
-- Notification persistence and read timestamps; audit events for authentication and record mutation.
-- Safe CSV/report generation and download headers; spreadsheet-formula neutralization.
-- File handling only if profile images or attachments are later approved; none is required by the React source.
-- Email delivery only for approved password-reset/notification workflows.
+- The entire data store is one JSON blob under `forgefleet_demo_v1` with no schema validation or migration.
+- Any user can edit, erase, or fabricate records through developer tools.
+- Storage parse failures silently fall back to defaults without reporting or recovery options.
+- Several service methods expose generic `upsert` and `remove`, making it easy for UI code to bypass domain safeguards.
+- Profile email updates do not enforce uniqueness.
+- Vehicle and driver deletion does not comprehensively check assignments or related history.
+- Dates, statuses, transitions, numeric ranges, and cross-record ownership are only partially validated.
+- Audit records are seeded display data; mutations do not consistently create new audit events.
+- A second command-center data object uses unrelated vehicles, drivers, work orders, counts, and notifications, so the same product shows contradictory fleet states.
 
-No backend code is created in this stage.
+## 7. Feature audit
 
-## 14. Missing, inaccessible, or unverifiable information
+| Feature                 | Status                                    | Findings                                                                                              |
+| ----------------------- | ----------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| Sign in/out             | Working demo                              | Validation, session, role redirect, and sign-out work; security is browser-only                       |
+| Registration            | Working demo                              | Role-specific validation and linked profiles; privileged codes are client-visible                     |
+| Forgot password         | Intentionally partial                     | Validates input and honestly reports that no email was sent                                           |
+| Role guards             | Working demo                              | Centralized redirect logic; not security                                                              |
+| Administrator dashboard | Visually strong, structurally isolated    | Separate dataset, shell, navigation, user, and permanent counts                                       |
+| Other role dashboards   | Partially correct                         | Manager/Admin metrics derive from core data; Mechanic/Driver metrics use hardcoded IDs                |
+| Users                   | Working generic CRUD                      | Search/filter/sort/page/modal actions; preserve account-deletion safeguards                           |
+| Vehicles                | Working generic CRUD                      | Missing comprehensive related-record deletion rules                                                   |
+| Drivers                 | Working generic CRUD                      | Manager and Administrator actions are not differentiated clearly                                      |
+| Mechanics               | Data exists, no dedicated management page | Mechanic records appear in form options and task relations                                            |
+| Assignments             | Working demo                              | Conflict prevention and end-assignment updates are useful                                             |
+| Maintenance             | Partially working                         | Generic CRUD exposes all records; Mechanic view is not scoped to assigned work                        |
+| Mileage                 | Partially working                         | Strict create service exists; role ownership and editing rules remain incomplete                      |
+| Service types           | Working generic CRUD                      | Referenced-record deletion guard exists                                                               |
+| Schedules/reminders     | Working generic views                     | Multiple route/page identifiers and role presentation are inconsistent                                |
+| Notifications           | Working demo                              | Read state persists, but duplicate paths and command-center hardcoding exist                          |
+| Profile                 | Working demo                              | Saves local fields; needs uniqueness and stronger error handling                                      |
+| Settings                | Decorative persistence                    | Preferences are saved, but no other code applies compact-table or reduced-motion selections           |
+| Search                  | Working broad search                      | Admin-only user search is differentiated; other results are not ownership-scoped                      |
+| Reports                 | Partially working                         | Calculated totals and safe CSV export work; charts are simplified CSS graphics and filters are absent |
+| Audit log               | Read-only seeded data                     | Not generated consistently by actual mutations                                                        |
+| Modal/toast             | Working                                   | Modal includes focus trap, Escape, backdrop close, and focus restoration                              |
+| Responsive shell        | Implemented in CSS                        | Needs real-device/browser verification during React port                                              |
 
-- No TypeScript interfaces, API contract, backend contract, tests, Storybook, or React error boundary exists.
-- The React source contains no confirmed Admin/Manager/Mechanic/Driver permission matrix.
-- Required role-specific pages are mostly absent, so their exact original layouts cannot be visually copied.
-- Forgot password, profile, full notifications, shared search results, audit logs, assignments, schedules, and real 404/error pages are absent.
-- Drivers, mileage, service types, users, and settings are generic placeholders, not full workflows.
-- There are no modals, confirmation dialogs, pagination, sorting, CRUD persistence, exports, or file upload behavior to inspect.
-- `public/` is empty; there is no standalone logo asset and no standalone SVG icon set.
-- Business rules for assignment conflicts, maintenance completion/approval, mileage ownership, delete scope, report visibility, and status transitions are unclear.
-- Dates/currency/mileage are presentation strings, and mock datasets contain inconsistent field names and parallel representations.
-- The reference folder's PHP/MySQL artifacts indicate a separate migration effort, but they do not establish the intended frontend-only requirements and were not modified.
+## 8. Decorative or misleading controls
 
-## Audit conclusion
+- Settings checkboxes save values but do not change table density or motion elsewhere.
+- The command-center “New Action” entries navigate to management pages rather than opening the named creation workflow.
+- The command-center notification badge is a permanent count.
+- CSS-only report and dashboard donut graphics are decorative rather than faithful data visualizations.
+- Forgot-password cannot send an email; its current explanatory response is preferable to a false success claim and should remain until a backend exists.
 
-The reference is a polished dark/gold React/Vite prototype with seven substantive views: login, dashboard, vehicles, vehicle details, maintenance history, reminders, and reports. Its strongest reusable assets are the responsive application shell, page header system, cards, tables, status badges, input/button primitives, chart components, notifications, and responsive CSS Modules. Most business behavior is static or placeholder-driven; there is no real authentication, role enforcement, persistence, CRUD, API, or backend.
+No obvious `href="#"`, inline `onclick`, TODO/FIXME markers, empty files, or unformatted one-line source files were found.
 
-The recommended next stage is **Stage 2: static frontend scaffold**, only after this audit is reviewed. Stage 2 should create the agreed HTML/CSS/JavaScript directory structure and component-loading test without filling pages with final layouts.
+## 9. Duplicate and tightly coupled logic
+
+- `app.js` is approximately 750 lines and owns configuration, data selection, HTML templates, CRUD forms, dashboards, reports, notifications, profile, search, bindings, permissions, and routing decisions.
+- `dashboard.js` adds another full shell and dashboard implementation rather than composing the shared components.
+- Role HTML files repeat nearly identical stylesheet and script lists.
+- Notifications have shared and role-specific entry documents.
+- Administrator command-center records duplicate the normalized mock dataset with different IDs and totals.
+- UI scripts rely on global `window.ForgeFleet*` objects and strict script order.
+- Component loading relies on runtime HTML fetches and manual root-depth calculation.
+- Direct DOM template injection makes ownership, escaping, accessibility, and event lifecycle difficult to reason about.
+
+## 10. What should be preserved
+
+### Functional requirements
+
+- Four roles: Administrator, Manager, Mechanic, and Driver.
+- Role redirect, protected navigation, and sign-out behavior.
+- Registration validation and role-profile relationships, while isolating demo-only credentials.
+- Searchable, filterable, sortable, paginated management tables.
+- Modal create/edit and confirmed destructive actions.
+- Assignment conflicts and relationship updates.
+- Maintenance status, findings, work performed, notes, costs, and history.
+- Mileage monotonicity and duplicate-date validation.
+- Notification recipient/read state.
+- Profile editing and remembered email.
+- Dashboard metrics calculated from one authoritative dataset.
+- Report totals and spreadsheet-safe CSV export.
+- Empty states, validation feedback, loading/disabled states, and toasts.
+
+### Visual requirements
+
+- Dark charcoal and gold visual direction.
+- Inter typography and local font assets.
+- ForgeFleet hero image and login composition.
+- Dense but readable command-center information hierarchy.
+- Sidebar/topbar shell, cards, badges, table styling, modal, toast, profile menu, and responsive drawer.
+- Focus states, reduced-motion support, and mobile table overflow.
+
+### Assets
+
+- `src/assets/images/forgefleet-hero.png`
+- `src/assets/fonts/inter-latin-400-normal.woff2`
+- `src/assets/fonts/inter-latin-600-normal.woff2`
+- `src/assets/fonts/inter-latin-700-normal.woff2`
+- Inter and Lucide license notices
+
+## 11. What should not be carried forward
+
+- Plaintext credentials or shared privileged registration codes outside an explicitly isolated demo adapter.
+- Frontend route hiding described as real authorization.
+- Hardcoded `MEC-001`, `DRV-001`, `VEH-001`, or a static command-center user as current-account logic.
+- The duplicate `ForgeFleetDashboard` dataset.
+- Duplicate shell, navigation, search, notification, and profile implementations.
+- Global window namespaces and script-order dependencies.
+- Repeated HTML entry documents for every route.
+- Runtime-fetched HTML partials and manual `data-depth` path logic.
+- Generic mutation methods exposed directly to page components.
+- Settings that persist without affecting the interface.
+- Decorative counts, charts, or action labels that imply unsupported behavior.
+- PHP/MySQL/backend plans during the frontend rebuild.
+
+## 12. Recommended rebuild stages
+
+1. Establish governance and preserve this audit.
+2. Preserve the static prototype and scaffold React/Vite/TypeScript with routing and validation tooling.
+3. Port design tokens, shared UI components, and Auth/Dashboard layouts.
+4. Define normalized TypeScript domain models and a replaceable demo service/storage adapter.
+5. Implement authentication context, session-derived profiles, protected routes, and role routes.
+6. Port shared and Administrator workflows using one authoritative dataset.
+7. Port Manager assignments, schedules, and reporting.
+8. Port Mechanic work with authenticated-profile scoping.
+9. Port Driver assignment, mileage, and reminder workflows with authenticated-profile scoping.
+10. Consolidate routes, remove React duplication, and complete accessibility, responsive, console, test, and build verification.
+
+Detailed deliverables and exit criteria are in `docs/frontend-rebuild-plan.md`.
+
+## 13. Historical audit conclusion
+
+The static prototype provided a valuable functional specification and visual reference. The completed rebuild followed the staged approach: the prototype is archived intact, the active React application uses typed domain and service boundaries, role workflows share one shell and dataset, and current-user records are resolved through the active session and linked profiles.

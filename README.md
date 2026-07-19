@@ -1,42 +1,89 @@
-# ForgeFleet frontend prototype
+# ForgeFleet
 
-ForgeFleet is a pure HTML5, CSS3, and vanilla JavaScript demonstration of a fleet maintenance log system. It preserves the original React/Vite prototype's dark charcoal, gold-accented visual language while keeping business data behind a replaceable frontend data service.
+ForgeFleet is a frontend-only fleet-maintenance application for administrators, managers, mechanics, and drivers. The active application is the React, Vite, and TypeScript project in [`frontend/`](frontend/). The original static prototype is archived in [`legacy-static/`](legacy-static/) and is not the active application.
 
-## Run locally
+## Requirements
 
-Open this folder in VS Code, install/enable **Live Server**, and choose **Open with Live Server** on `index.html`. Use the resulting `http://127.0.0.1:...` URL. Do not open pages with `file://`: shared sidebar, topbar, footer, modal, and toast partials are fetched by JavaScript and browsers normally block those fetches for local files.
+- Node.js `^20.19.0` or `>=22.12.0`
+- npm
+- A modern browser with JavaScript and browser storage enabled
 
-## Demo accounts
+## Install and run
 
-| Role     | Email                      | Password      |
-| -------- | -------------------------- | ------------- |
-| Admin    | `admin@forgefleet.demo`    | `admin123`    |
-| Manager  | `manager@forgefleet.demo`  | `manager123`  |
-| Mechanic | `mechanic@forgefleet.demo` | `mechanic123` |
-| Driver   | `driver@forgefleet.demo`   | `driver123`   |
+```bash
+cd frontend
+npm install
+npm run dev
+```
 
-## Sign In and Sign Up
+Vite prints the local development URL. Production validation and preview use:
 
-Use `signup.html` to create a browser-local Driver, Mechanic, Manager, or Admin demonstration account. Driver and Mechanic registration is open for the demo. Manager registration requires `MANAGER2026`; Admin registration requires `ADMIN2026`. These codes and all local passwords are visible frontend demonstration values, not security controls. Role-specific fields are stored in the account profile, while registration codes are discarded.
+```bash
+npm run format
+npm run lint
+npm run typecheck
+npm run test
+npm run build
+npm run preview
+```
 
-Sign In looks up the stored account, determines its role, records a temporary `sessionStorage` session, and redirects to that role's dashboard. “Remember my email” stores only the email reference in localStorage. Protected pages simulate role guards and redirect cross-role navigation to the signed-in user's own dashboard.
+## Development accounts
 
-Authentication is a navigation demonstration using `sessionStorage`; it is not security. Default records are copied from `src/services/mockData.js` into `localStorage` under `forgefleet_demo_v1`. Use **Reset demo data** in the sidebar to restore defaults.
+These credentials are browser-visible demonstration values, not secrets.
 
-## Architecture
+| Role          | Email                      | Password      |
+| ------------- | -------------------------- | ------------- |
+| Administrator | `admin@forgefleet.demo`    | `admin123`    |
+| Manager       | `manager@forgefleet.demo`  | `manager123`  |
+| Mechanic      | `mechanic@forgefleet.demo` | `mechanic123` |
+| Driver        | `driver@forgefleet.demo`   | `driver123`   |
 
-- Root pages: sign-in, recovery, 404, design-system and layout references.
-- Role folders: Admin, Manager, Mechanic, and Driver interfaces.
-- `shared/`: profile, notifications, and role-aware search.
-- `src/assets/`: local images, fonts, and third-party license notices.
-- `src/components/`: fetched layout and UI partials.
-- `src/services/`: authentication, browser storage, mock data, and the replaceable CRUD boundary.
-- `src/scripts/`: shared page renderers, navigation, component loading, and page controllers.
-- `src/styles/`: tokens, reset, global, layout, components, utilities, responsive, and page styles.
-- `src/utils/`: small shared validation and escaping helpers.
+Driver and Mechanic self-registration is available in the demonstration. It creates a linked fleet user and role profile. Administrator and Manager self-registration is intentionally unavailable until a provisioned backend workflow exists.
 
-The prototype includes calculated dashboards, searchable/filterable/sortable/paginated management tables, modal CRUD, assignment conflict checks, maintenance updates, mileage records, profile changes, notification read state, role navigation, responsive menus, report visuals, and safe CSV output.
+## Project structure
 
-## Limitations and handoff
+```text
+ForgeFleet/
+├── frontend/                 Active React application
+│   ├── src/
+│   │   ├── components/       Reusable common, layout, and UI components
+│   │   ├── context/          Authentication state
+│   │   ├── data/             Centralized development records
+│   │   ├── hooks/            Shared React hooks
+│   │   ├── layouts/          Public, authentication, and dashboard shells
+│   │   ├── pages/            Routed application screens
+│   │   ├── routes/           Route configuration and role guards
+│   │   ├── services/         Authentication, persistence, views, and reports
+│   │   ├── styles/           Tokens and shared responsive styles
+│   │   ├── types/            Shared TypeScript domain types
+│   │   └── utils/            Formatting and validation helpers
+│   └── README.md
+├── legacy-static/            Archived HTML/CSS/JavaScript prototype
+├── docs/                     Audit, rebuild, and handoff documentation
+└── AGENTS.md                 Contributor rules
+```
 
-There is no PHP, MySQL, API, server authentication, email delivery, file upload, or live notification/report source. Browser data is temporary and can be edited by the user. The next phase may replace `data-service.js` with PHP-backed requests while preserving approved pages and component interfaces. See `docs/backend-handoff-map.md`.
+## Role behavior
+
+- **Administrator:** fleet-wide dashboard, users, drivers, mechanics, vehicles, assignments, maintenance, service types, history, and reports.
+- **Manager:** operational dashboard, drivers, mechanics, vehicles, assignments, schedules, work orders, service history, service-type visibility, and reports.
+- **Mechanic:** assigned-work dashboard, permitted work-order transitions, service notes, completion, and relevant history.
+- **Driver:** assigned-vehicle dashboard, mileage, maintenance reminders and status, and relevant service history.
+- **All authenticated roles:** notifications, profile details, session restoration, and sign out.
+
+Routes are protected in the React UI and service workflows resolve records from the active session user ID. This is demonstration authorization only.
+
+## Frontend-only limitations and known issues
+
+- Authentication, role guards, records, and sessions are stored in browser-accessible storage and are not secure.
+- Data is local to the browser profile and is not synchronized across devices. Same-tab updates are live; cross-tab synchronization is not implemented.
+- Profile contact-email edits do not replace the documented development login credential.
+- Password changes, password-recovery delivery, server audit logs, real-time notifications, and multi-user concurrency require a backend.
+- Reports are browser-calculated snapshots of mock records, not server-generated or real-time reports.
+- The project does not provide a backend, API, database, email service, or production deployment configuration.
+
+## Planned backend integration
+
+The typed services in `frontend/src/services/` are the replacement boundary for a future API. Backend work must provide secure identity and session handling, server-side role authorization, persistent relational records, validation and conflict handling, audit events, notification delivery, report queries, password workflows, and API error contracts. Browser persistence should then be replaced without moving data-access logic into pages.
+
+See [`docs/frontend-audit.md`](docs/frontend-audit.md), [`docs/frontend-rebuild-plan.md`](docs/frontend-rebuild-plan.md), and [`frontend/README.md`](frontend/README.md) for implementation detail.
