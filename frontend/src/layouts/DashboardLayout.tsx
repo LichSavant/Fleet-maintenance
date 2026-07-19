@@ -82,6 +82,7 @@ export function DashboardLayout({
           menuExpanded={isNavigationOpen}
           onMenuToggle={() => setIsNavigationOpen((open) => !open)}
           title={headerTitle}
+          navigation={navigation}
         />
         <main className="dashboard-content" id="main-content">
           <Outlet />

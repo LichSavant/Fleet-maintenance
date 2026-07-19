@@ -1,125 +1,232 @@
-import { DashboardList } from "../../components/common/DashboardList";
-import { DashboardMetric } from "../../components/common/DashboardMetric";
-import { EmptyState } from "../../components/common/EmptyState";
-import { PageHeader } from "../../components/layout/PageHeader";
-import { Card } from "../../components/ui/Card";
-import { StatusBadge } from "../../components/ui/StatusBadge";
+import { ErrorState } from "../../components/common/ErrorState";
+import { ManagementLoadingState } from "../../components/common/ManagementLoadingState";
+import {
+  EmptyDashboardState,
+  PanelLink,
+  PremiumGreeting,
+  PremiumMetric,
+  PremiumPage,
+  PremiumPanel,
+  Sparkline,
+  StatusPill,
+} from "../../components/dashboard/PremiumDashboard";
 import { useAuth } from "../../hooks/useAuth";
-import { dashboardService } from "../../services/dashboardService";
+import { useFleetData } from "../../hooks/useFleetData";
 import { formatDate, formatNumber } from "../../utils/formatDate";
-import { getStatusTone } from "../../utils/statusTone";
+import { getVehicleDisplayImage } from "../../utils/vehicleImage";
 
 export default function DriverDashboardPage() {
   const { user } = useAuth();
-  if (!user) return null;
+  const { data, error, isLoading, reload } = useFleetData();
+  if (isLoading)
+    return <ManagementLoadingState label="Loading driver dashboard" />;
+  if (error || !data || !user)
+    return (
+      <ErrorState
+        title="Dashboard could not be loaded"
+        description={error || "No driver data is available."}
+        onRetry={reload}
+      />
+    );
 
-  const dashboard = dashboardService.getDriverDashboard(user);
-  const vehicle = dashboard.assignedVehicle;
+  const profile = data.driverProfiles.find((item) => item.userId === user.id);
+  const assignment = profile
+    ? data.assignments.find(
+        (item) =>
+          item.driverProfileId === profile.id && item.status === "Active",
+      )
+    : undefined;
+  const vehicle = assignment
+    ? data.vehicles.find((item) => item.id === assignment.vehicleId)
+    : undefined;
+  const mileage = profile
+    ? [...data.mileageSubmissions]
+        .filter((item) => item.driverProfileId === profile.id)
+        .sort((a, b) => a.submittedAt.localeCompare(b.submittedAt))
+    : [];
+  const reminders = vehicle
+    ? [...data.maintenanceSchedules]
+        .filter(
+          (item) =>
+            item.vehicleId === vehicle.id &&
+            !["Converted", "Cancelled"].includes(item.status),
+        )
+        .sort((a, b) => a.dueDate.localeCompare(b.dueDate))
+        .slice(0, 4)
+    : [];
+  const history = vehicle
+    ? [...data.maintenanceRecords]
+        .filter(
+          (item) =>
+            item.vehicleId === vehicle.id && item.status === "completed",
+        )
+        .sort((a, b) =>
+          (b.completedDate ?? "").localeCompare(a.completedDate ?? ""),
+        )
+        .slice(0, 5)
+    : [];
+  const recentMileage = mileage.slice(-8).map((item) => item.mileage);
+  const lastSubmission = mileage.at(-1);
 
   return (
-    <div className="role-dashboard-page">
-      <PageHeader
-        breadcrumbs={[{ label: "Driver" }, { label: "Dashboard" }]}
-        eyebrow="Assigned vehicle"
-        subtitle="Vehicle, mileage, service, and notification records resolved from the active driver profile."
-        title="Driver dashboard"
+    <PremiumPage>
+      <PremiumGreeting
+        eyebrow="Driver dashboard"
+        title={`Good morning, ${user.fullName.split(" ")[0]}`}
+        subtitle="Your assigned vehicle, mileage activity, and maintenance reminders."
       />
-
-      <section aria-label="Driver summaries" className="dashboard-metrics-grid">
-        <DashboardMetric
-          detail={vehicle?.model ?? "No active assignment"}
-          label="Assigned vehicle"
-          value={vehicle?.plate ?? "None"}
-        />
-        <DashboardMetric
-          detail="Recorded odometer"
-          label="Mileage summary"
-          value={vehicle ? `${formatNumber(vehicle.mileage)} km` : "—"}
-        />
-        <DashboardMetric
-          label="Maintenance reminders"
-          value={dashboard.maintenanceReminders.length}
-        />
-        <DashboardMetric
-          label="Notifications"
-          value={dashboard.notifications.length}
-        />
-      </section>
-
-      <div className="dashboard-sections-grid">
-        <Card eyebrow="Vehicle status" title="Assigned vehicle">
+      <div className="premium-driver-overview">
+        <PremiumPanel
+          title="Today's vehicle"
+          subtitle={
+            vehicle
+              ? `${vehicle.manufacturer} ${vehicle.model}`
+              : "No active assignment"
+          }
+          className="premium-vehicle-card"
+        >
           {vehicle ? (
-            <div className="vehicle-summary">
+            <div className="driver-vehicle-visual">
+              <img
+                src={getVehicleDisplayImage(vehicle, assignment?.id)}
+                alt={`${vehicle.manufacturer} ${vehicle.model} ${vehicle.fleetNumber}`}
+              />
               <div>
-                <strong>{vehicle.plate}</strong>
-                <span>{vehicle.model}</span>
+                <strong>{vehicle.fleetNumber}</strong>
+                <span>{vehicle.plate}</span>
+                <StatusPill
+                  tone={vehicle.status === "Active" ? "success" : "warning"}
+                >
+                  {vehicle.status}
+                </StatusPill>
               </div>
-              <StatusBadge tone={getStatusTone(vehicle.status)}>
-                {vehicle.status}
-              </StatusBadge>
-              <dl>
-                <div>
-                  <dt>Type</dt>
-                  <dd>{vehicle.type}</dd>
-                </div>
-                <div>
-                  <dt>Model year</dt>
-                  <dd>{vehicle.year}</dd>
-                </div>
-                <div>
-                  <dt>Health record</dt>
-                  <dd>{vehicle.health}%</dd>
-                </div>
-              </dl>
             </div>
           ) : (
-            <EmptyState
-              description="A vehicle will appear when an active assignment is linked to this driver profile."
-              title="No assigned vehicle"
-            />
+            <EmptyDashboardState message="A manager has not assigned a vehicle to this account." />
           )}
-        </Card>
-        <DashboardList
-          emptyDescription="Scheduled service for the assigned vehicle will appear here."
-          emptyTitle="No maintenance reminders"
-          eyebrow="Service schedule"
-          items={dashboard.maintenanceReminders.map((schedule) => ({
-            description: `${schedule.vehicle.plate} · due ${formatDate(schedule.dueDate)}`,
-            id: schedule.id,
-            status: schedule.status,
-            title: schedule.service,
-            tone: getStatusTone(schedule.status),
-          }))}
+        </PremiumPanel>
+
+        <PremiumPanel
+          title="Mileage tracker"
+          subtitle="Odometer submission trend"
+          action={<PanelLink to="/driver/mileage">Submit</PanelLink>}
+        >
+          <div className="premium-inline-summary premium-inline-summary-three">
+            <div>
+              <span>Current</span>
+              <strong>{formatNumber(vehicle?.mileage ?? 0)} km</strong>
+            </div>
+            <div>
+              <span>Submissions</span>
+              <strong>{mileage.length}</strong>
+            </div>
+            <div>
+              <span>Last entry</span>
+              <strong>
+                {lastSubmission ? formatNumber(lastSubmission.mileage) : "—"}
+              </strong>
+            </div>
+          </div>
+          {recentMileage.length ? (
+            <Sparkline values={recentMileage} />
+          ) : (
+            <EmptyDashboardState message="Your mileage trend starts after the first submission." />
+          )}
+        </PremiumPanel>
+
+        <PremiumPanel
           title="Maintenance reminders"
+          subtitle="Upcoming service for your vehicle"
+          action={<PanelLink to="/driver/maintenance">View all</PanelLink>}
+        >
+          {reminders.length ? (
+            <div className="premium-list premium-list-compact">
+              {reminders.map((schedule) => {
+                const service = data.serviceTypes.find(
+                  (item) => item.id === schedule.serviceTypeId,
+                );
+                const overdue =
+                  schedule.dueDate < new Date().toISOString().slice(0, 10);
+                return (
+                  <article key={schedule.id}>
+                    <div>
+                      <strong>{service?.name ?? "Maintenance"}</strong>
+                      <span>{formatDate(schedule.dueDate)}</span>
+                    </div>
+                    <StatusPill tone={overdue ? "danger" : "warning"}>
+                      {overdue ? "Overdue" : "Upcoming"}
+                    </StatusPill>
+                  </article>
+                );
+              })}
+            </div>
+          ) : (
+            <EmptyDashboardState message="No maintenance reminders for the assigned vehicle." />
+          )}
+        </PremiumPanel>
+      </div>
+
+      <div className="premium-metric-grid premium-metric-grid-three">
+        <PremiumMetric
+          icon="truck"
+          label="Assignment status"
+          value={assignment ? "Assigned" : "Unassigned"}
+          detail={
+            assignment
+              ? `Since ${formatDate(assignment.startDate)}`
+              : "Waiting for assignment"
+          }
         />
-        <DashboardList
-          emptyDescription="Mileage submitted by this driver will appear here."
-          emptyTitle="No mileage submissions"
-          eyebrow="Mileage history"
-          items={dashboard.recentSubmissions.map((submission) => ({
-            description: `${submission.vehicle.plate} · ${submission.notes}`,
-            id: submission.id,
-            meta: formatDate(submission.submittedAt),
-            status: `${formatNumber(submission.mileage)} km`,
-            title: "Odometer submission",
-          }))}
-          title="Recent submissions"
+        <PremiumMetric
+          icon="check"
+          tone="green"
+          label="Vehicle health"
+          value={`${vehicle?.health ?? 0}%`}
+          detail={vehicle?.status ?? "No vehicle"}
         />
-        <DashboardList
-          emptyDescription="Account-specific driver notifications will appear here."
-          emptyTitle="No notifications"
-          eyebrow="Account updates"
-          items={dashboard.notifications.map((notification) => ({
-            description: notification.message,
-            id: notification.id,
-            meta: formatDate(notification.createdAt),
-            status: notification.read ? "Read" : "Unread",
-            title: notification.title,
-            tone: notification.read ? "neutral" : "info",
-          }))}
-          title="Notifications"
+        <PremiumMetric
+          icon="layers"
+          tone="amber"
+          label="Completed service"
+          value={history.length}
+          detail="Visible service records"
         />
       </div>
-    </div>
+
+      <PremiumPanel
+        title="Recent service history"
+        subtitle="Completed maintenance for your assigned vehicle"
+        className="premium-panel-wide"
+        action={<PanelLink to="/maintenance/history">View all</PanelLink>}
+      >
+        {history.length ? (
+          <div className="premium-work-table premium-work-table-driver">
+            <div className="premium-work-row premium-work-head">
+              <span>Date</span>
+              <span>Service</span>
+              <span>Vehicle</span>
+              <span>Status</span>
+            </div>
+            {history.map((work) => {
+              const service = data.serviceTypes.find(
+                (item) => item.id === work.serviceTypeId,
+              );
+              return (
+                <div className="premium-work-row" key={work.id}>
+                  <span>
+                    {work.completedDate ? formatDate(work.completedDate) : "—"}
+                  </span>
+                  <strong>{service?.name ?? "Service"}</strong>
+                  <span>{vehicle?.fleetNumber ?? "Vehicle"}</span>
+                  <StatusPill tone="success">Completed</StatusPill>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <EmptyDashboardState message="Completed maintenance records will appear here." />
+        )}
+      </PremiumPanel>
+    </PremiumPage>
   );
 }

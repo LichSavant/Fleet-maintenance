@@ -150,7 +150,7 @@ export default function VehiclesPage() {
   ];
 
   const initialValues: VehicleFormValues | null = editing
-    ? { ...editing.vehicle }
+    ? { ...editing.vehicle, imageUrl: editing.vehicle.imageUrl ?? "" }
     : null;
 
   const saveVehicle = async (values: VehicleInput) => {
@@ -316,6 +316,10 @@ export default function VehiclesPage() {
                 },
                 { label: "Year", value: viewing.vehicle.year },
                 { label: "Vehicle type", value: viewing.vehicle.type },
+                {
+                  label: "Image",
+                  value: viewing.vehicle.imageUrl ?? "Generated illustration",
+                },
                 { label: "Status", value: viewing.vehicle.status },
                 {
                   label: "Mileage",

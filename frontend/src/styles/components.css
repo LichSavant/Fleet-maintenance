@@ -52,13 +52,22 @@
 }
 
 .button-danger {
-  border-color: #754048;
-  background: var(--color-danger-background);
-  color: #ffd9d9;
+  border-color: #d9a0a8;
+  background: #fff0f2;
+  color: #982f3d;
 }
 
 .button-danger:hover:not(:disabled) {
-  background: #54262b;
+  border-color: #c67d87;
+  background: #f8dfe3;
+  color: #7d2230;
+}
+
+.button-danger:disabled {
+  border-color: #e3bdc2;
+  background: #f8ecee;
+  color: #a85d67;
+  opacity: 1;
 }
 
 .button-small {

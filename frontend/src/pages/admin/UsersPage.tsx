@@ -156,7 +156,7 @@ export default function UsersPage() {
     } else {
       await fleetDataService.createUser(values);
       setFeedback({
-        message: "User account and role profile created.",
+        message: "Account invitation sent and role profile created.",
         tone: "success",
       });
     }

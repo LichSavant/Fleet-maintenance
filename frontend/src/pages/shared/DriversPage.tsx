@@ -154,7 +154,7 @@ export default function DriversPage() {
         licenseNumber: values.licenseNumber ?? "",
       });
       setFeedback({
-        message: "Driver account and profile created.",
+        message: "Driver invitation sent and role profile created.",
         tone: "success",
       });
     }

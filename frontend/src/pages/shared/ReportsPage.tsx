@@ -45,7 +45,7 @@ export default function ReportsPage() {
   const { data, error, isLoading, reload } = useFleetData();
 
   if (isLoading)
-    return <ManagementLoadingState label="Calculating frontend reports" />;
+    return <ManagementLoadingState label="Loading fleet reports" />;
   if (error)
     return (
       <ErrorState
@@ -62,8 +62,8 @@ export default function ReportsPage() {
     <div className="role-dashboard-page">
       <PageHeader
         breadcrumbs={[{ label: "Workspace" }, { label: "Reports" }]}
-        eyebrow="Frontend snapshot"
-        subtitle="These summaries are calculated in your browser from the current mock fleet records. They are not server-generated or real-time reports."
+        eyebrow="Operational reporting"
+        subtitle="Live summaries calculated from the Supabase records authorized for your account."
         title="Fleet reports"
       />
       <div className="reports-grid">

@@ -31,10 +31,6 @@ export interface RegistrationInput {
   specialty?: string;
 }
 
-export interface StoredAuthAccount extends AuthUser {
-  password: string;
-}
-
 export type AuthErrorCode =
   | "duplicate_email"
   | "inactive_account"

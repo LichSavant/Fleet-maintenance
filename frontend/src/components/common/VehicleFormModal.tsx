@@ -24,6 +24,7 @@ type VehicleFormErrors = Partial<Record<keyof VehicleInput, string>>;
 
 const EMPTY_VEHICLE: VehicleInput = {
   fleetNumber: "",
+  imageUrl: "",
   manufacturer: "",
   mileage: 0,
   model: "",
@@ -185,6 +186,18 @@ export function VehicleFormModal({
             <Input
               onChange={(event) => update("type", event.target.value)}
               value={values.type}
+            />
+          </FormField>
+          <FormField
+            id="vehicle-image-url"
+            label="Vehicle image URL"
+            hint="Optional. Use a public Supabase Storage URL or a local /assets path. When empty, ForgeFleet generates a stable vehicle illustration for the active assignment."
+          >
+            <Input
+              onChange={(event) => update("imageUrl", event.target.value)}
+              placeholder="https://... or /assets/vehicle.png"
+              type="url"
+              value={values.imageUrl ?? ""}
             />
           </FormField>
           <FormField id="vehicle-status" label="Status" required>

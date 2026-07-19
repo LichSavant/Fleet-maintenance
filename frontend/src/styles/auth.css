@@ -99,9 +99,10 @@
 }
 
 .form-banner-error {
-  border-color: #754048;
-  background: var(--color-danger-background);
-  color: #ffd3d3;
+  border-color: #d58d98;
+  background: #fff0f2;
+  color: #8f2634;
+  font-weight: var(--font-weight-semibold);
 }
 
 .form-banner-success {

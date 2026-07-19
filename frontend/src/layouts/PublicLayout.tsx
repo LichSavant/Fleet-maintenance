@@ -1,35 +1,26 @@
-import { NavLink, Outlet } from "react-router-dom";
+import { Link, Outlet } from "react-router-dom";
 
-const publicNavigation = [
-  ["/", "Home"],
-  ["/sign-in", "Sign in"],
-  ["/sign-up", "Create account"],
-] as const;
+import { BrandLogo } from "../components/layout/BrandLogo";
 
 export function PublicLayout() {
   return (
     <div className="public-layout">
       <header className="public-header">
-        <NavLink aria-label="ForgeFleet home" className="public-brand" to="/">
-          <span className="brand-mark" aria-hidden="true">
-            FF
-          </span>
-          <span>ForgeFleet</span>
-        </NavLink>
-        <nav aria-label="Public navigation">
-          {publicNavigation.map(([to, label]) => (
-            <NavLink
-              className={({ isActive }) =>
-                isActive ? "public-link public-link-active" : "public-link"
-              }
-              end={to === "/"}
-              key={to}
-              to={to}
-            >
-              {label}
-            </NavLink>
-          ))}
+        <BrandLogo inverted />
+        <nav aria-label="Public navigation" className="public-navigation">
+          <a href="/#platform">Platform</a>
+          <a href="/#roles">Roles</a>
+          <a href="/#capabilities">Capabilities</a>
+          <a href="/#security">Security</a>
         </nav>
+        <div className="public-auth-actions">
+          <Link className="public-sign-in" to="/sign-in">
+            Sign in
+          </Link>
+          <Link className="public-sign-up" to="/sign-up">
+            Sign up
+          </Link>
+        </div>
       </header>
       <Outlet />
     </div>

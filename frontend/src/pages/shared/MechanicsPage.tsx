@@ -141,7 +141,7 @@ export default function MechanicsPage() {
         specialty: values.specialty ?? "",
       });
       setFeedback({
-        message: "Mechanic account and profile created.",
+        message: "Mechanic invitation sent and role profile created.",
         tone: "success",
       });
     }

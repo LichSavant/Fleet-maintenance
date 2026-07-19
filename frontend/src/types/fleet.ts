@@ -39,6 +39,7 @@ export interface DriverProfile {
 
 export interface Vehicle {
   fleetNumber: string;
+  imageUrl?: string | null;
   health: number;
   id: string;
   manufacturer: string;

@@ -54,6 +54,14 @@ export default function DriverMileagePage() {
     event.preventDefault();
     setFeedback(null);
     setIsSubmitting(true);
+    if (vehicle && Number(mileage) < vehicle.mileage) {
+      setFeedback({
+        message: `Mileage cannot be lower than the current odometer of ${vehicle.mileage.toLocaleString()} km.`,
+        tone: "error",
+      });
+      setIsSubmitting(false);
+      return;
+    }
     try {
       await fleetDataService.submitMileage(
         {
@@ -66,7 +74,8 @@ export default function DriverMileagePage() {
       setMileage("");
       setNotes("");
       setFeedback({
-        message: "Mileage submitted and the assigned vehicle odometer updated.",
+        message:
+          "Mileage saved successfully. An existing reading for the selected date was updated when applicable.",
         tone: "success",
       });
     } catch (submitError) {

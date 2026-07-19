@@ -3,6 +3,9 @@
 @import url("./layouts.css");
 @import url("./pages.css");
 @import url("./auth.css");
+@import url("./premium.css");
+@import url("./clean-dashboard.css");
+@import url("./accessibility-polish.css");
 
 @font-face {
   font-family: Inter;

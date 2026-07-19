@@ -98,7 +98,7 @@ export function AccountFormModal({
       description={
         isEditing
           ? "Update this account and its linked role profile."
-          : "The account and any required role profile are created together."
+          : "Send a secure invitation and create the linked role profile."
       }
       footer={
         <>
@@ -111,13 +111,13 @@ export function AccountFormModal({
             type="submit"
             variant="primary"
           >
-            {isEditing ? "Save changes" : "Create account"}
+            {isEditing ? "Save changes" : "Send invitation"}
           </Button>
         </>
       }
       isOpen={isOpen}
       onClose={onClose}
-      title={isEditing ? "Edit account" : "Add account"}
+      title={isEditing ? "Edit account" : "Invite account"}
     >
       <form
         className="management-form"

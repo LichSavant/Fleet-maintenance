@@ -2,6 +2,9 @@ import type { SVGProps } from "react";
 
 export type IconName =
   | "alert"
+  | "assignment"
+  | "calendar"
+  | "clipboard"
   | "bell"
   | "check"
   | "chevron-left"
@@ -9,11 +12,15 @@ export type IconName =
   | "close"
   | "dashboard"
   | "driver"
+  | "gauge"
+  | "history"
   | "home"
   | "info"
   | "layers"
   | "menu"
+  | "reports"
   | "search"
+  | "settings"
   | "shield"
   | "truck"
   | "users"
@@ -25,6 +32,37 @@ interface IconProps extends Omit<SVGProps<SVGSVGElement>, "name"> {
 }
 
 const iconPaths: Record<IconName, React.ReactNode> = {
+  assignment: (
+    <>
+      <rect x="4" y="3" width="16" height="18" rx="2" />
+      <path d="M9 3.5h6v3H9z" />
+      <path d="M8 11h8" />
+      <path d="M8 15h5" />
+      <path d="m15 16 1.5 1.5L19 14.5" />
+    </>
+  ),
+  calendar: (
+    <>
+      <rect x="3" y="5" width="18" height="16" rx="2" />
+      <path d="M7 3v4" />
+      <path d="M17 3v4" />
+      <path d="M3 10h18" />
+      <path d="M8 14h.01" />
+      <path d="M12 14h.01" />
+      <path d="M16 14h.01" />
+      <path d="M8 18h.01" />
+      <path d="M12 18h.01" />
+    </>
+  ),
+  clipboard: (
+    <>
+      <rect x="5" y="4" width="14" height="17" rx="2" />
+      <path d="M9 4.5V3h6v1.5" />
+      <path d="M9 10h6" />
+      <path d="M9 14h4" />
+      <path d="m14.5 17 1.5 1.5 3-3" />
+    </>
+  ),
   alert: (
     <>
       <path d="M12 3 2.8 20h18.4L12 3Z" />
@@ -62,6 +100,22 @@ const iconPaths: Record<IconName, React.ReactNode> = {
       <path d="M8 17h8" />
     </>
   ),
+  gauge: (
+    <>
+      <path d="M4 17a8 8 0 1 1 16 0" />
+      <path d="M12 17 16 9" />
+      <path d="M7 17h10" />
+      <path d="M6.5 12.5h.01" />
+      <path d="M17.5 12.5h.01" />
+    </>
+  ),
+  history: (
+    <>
+      <path d="M3 12a9 9 0 1 0 3-6.7" />
+      <path d="M3 4v5h5" />
+      <path d="M12 7v5l3 2" />
+    </>
+  ),
   home: (
     <>
       <path d="m3 11 9-8 9 8" />
@@ -90,10 +144,24 @@ const iconPaths: Record<IconName, React.ReactNode> = {
       <path d="M4 17h16" />
     </>
   ),
+  reports: (
+    <>
+      <path d="M4 20V10" />
+      <path d="M10 20V4" />
+      <path d="M16 20v-7" />
+      <path d="M22 20H2" />
+    </>
+  ),
   search: (
     <>
       <circle cx="11" cy="11" r="7" />
       <path d="m20 20-4-4" />
+    </>
+  ),
+  settings: (
+    <>
+      <circle cx="12" cy="12" r="3" />
+      <path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1-2.8 2.8-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6V21h-4v-.1a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1L4.2 17l.1-.1a1.7 1.7 0 0 0 .3-1.9A1.7 1.7 0 0 0 3 14H3v-4h.1a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9l-.1-.1L7 4.2l.1.1a1.7 1.7 0 0 0 1.9.3A1.7 1.7 0 0 0 10 3V3h4v.1a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1L19.8 7l-.1.1a1.7 1.7 0 0 0-.3 1.9 1.7 1.7 0 0 0 1.6 1h.1v4H21a1.7 1.7 0 0 0-1.6 1Z" />
     </>
   ),
   shield: (

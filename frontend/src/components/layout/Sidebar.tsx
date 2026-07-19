@@ -4,6 +4,7 @@ import { NavLink } from "react-router-dom";
 import type { NavigationItem } from "../../types/navigation";
 import { classNames } from "../../utils/classNames";
 import { Icon } from "../ui/Icon";
+import { BrandLogo } from "./BrandLogo";
 
 export interface SidebarProps {
   isOpen: boolean;
@@ -22,7 +23,7 @@ export const Sidebar = forwardRef<HTMLElement, SidebarProps>(
       role={isOpen ? "dialog" : undefined}
     >
       <div className="sidebar-heading">
-        <LinkBrand />
+        <BrandLogo />
         <button
           aria-label="Close sidebar navigation"
           className="icon-button sidebar-close-button"
@@ -32,15 +33,19 @@ export const Sidebar = forwardRef<HTMLElement, SidebarProps>(
           <Icon name="close" />
         </button>
       </div>
+      <div className="sidebar-section-label">Main menu</div>
       <nav className="sidebar-navigation">
         {navigation.map((item) => (
           <NavLink
+            aria-label={item.label}
             className={({ isActive }) =>
               classNames("sidebar-link", isActive && "sidebar-link-active")
             }
-            end={item.to === "/"}
+            data-label={item.label}
+            end={item.to.endsWith("/dashboard")}
             key={item.to}
             onClick={onNavigate}
+            title={item.label}
             to={item.to}
           >
             <Icon name={item.icon} />
@@ -48,26 +53,16 @@ export const Sidebar = forwardRef<HTMLElement, SidebarProps>(
           </NavLink>
         ))}
       </nav>
-      <div className="sidebar-footer">
-        <p>Frontend authentication</p>
-        <span>Demonstration only</span>
+      <div className="sidebar-footer glass-panel" data-label="Secure workspace">
+        <span className="sidebar-footer-icon">
+          <Icon name="shield" size={18} />
+        </span>
+        <div>
+          <strong>Secure workspace</strong>
+          <span>Role-based Supabase access</span>
+        </div>
       </div>
     </aside>
   ),
 );
-
 Sidebar.displayName = "Sidebar";
-
-function LinkBrand() {
-  return (
-    <NavLink aria-label="ForgeFleet home" className="sidebar-brand" end to="/">
-      <span className="brand-mark" aria-hidden="true">
-        FF
-      </span>
-      <span>
-        <strong>ForgeFleet</strong>
-        <small>Fleet control</small>
-      </span>
-    </NavLink>
-  );
-}

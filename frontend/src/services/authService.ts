@@ -1,296 +1,203 @@
-import { DEVELOPMENT_ACCOUNTS } from "../data/mockAccounts";
+import type { User as SupabaseUser } from "@supabase/supabase-js";
+
+import { supabase } from "../lib/supabase";
+import { toAuthError } from "../lib/supabaseErrors";
 import {
   AuthError,
-  USER_ROLES,
   type AuthSession,
   type AuthUser,
   type RegistrationInput,
   type SignInCredentials,
-  type StoredAuthAccount,
   type UserRole,
 } from "../types/auth";
-import { isRequired, isValidEmail, isValidPassword } from "../utils/validation";
 import type { ProfileUpdateInput } from "../types/shared";
 
-const STORAGE_KEYS = {
-  registeredAccounts: "forgefleet.frontend.auth.accounts.v1",
-  rememberedEmail: "forgefleet.frontend.auth.remembered-email.v1",
-  session: "forgefleet.frontend.auth.session.v1",
-} as const;
-
-const MOCK_DELAY_MS = 250;
+const REMEMBERED_EMAIL_KEY = "forgefleet.auth.remembered-email";
 
 export const REGISTRATION_POLICY = {
   restrictedRoles: ["admin", "manager"] as const,
   selfServiceRoles: ["mechanic", "driver"] as const,
 };
 
-function delay() {
-  return new Promise<void>((resolve) => {
-    window.setTimeout(resolve, MOCK_DELAY_MS);
-  });
+interface ProfileRow {
+  email: string;
+  full_name: string;
+  id: string;
+  role: UserRole;
+  status: "active" | "inactive";
 }
 
 function normalizeEmail(email: string) {
   return email.trim().toLowerCase();
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
-}
-
-function isUserRole(value: unknown): value is UserRole {
-  return typeof value === "string" && USER_ROLES.includes(value as UserRole);
-}
-
-function isAuthUser(value: unknown): value is AuthUser {
-  return (
-    isRecord(value) &&
-    typeof value.id === "string" &&
-    typeof value.fullName === "string" &&
-    typeof value.email === "string" &&
-    isUserRole(value.role)
-  );
-}
-
-function isAuthSession(value: unknown): value is AuthSession {
-  return (
-    isRecord(value) &&
-    value.version === 1 &&
-    typeof value.createdAt === "string" &&
-    isAuthUser(value.user)
-  );
-}
-
-function isStoredAccount(value: unknown): value is StoredAuthAccount {
-  return (
-    isAuthUser(value) &&
-    "password" in value &&
-    typeof value.password === "string"
-  );
-}
-
-function removeStoredValue(key: string) {
+function saveRememberedEmail(email: string | null) {
   try {
-    window.localStorage.removeItem(key);
+    if (email) window.localStorage.setItem(REMEMBERED_EMAIL_KEY, email);
+    else window.localStorage.removeItem(REMEMBERED_EMAIL_KEY);
   } catch {
-    // Storage may be unavailable. Reads still fail closed as signed out.
+    // Remembering an email is optional and never blocks authentication.
   }
 }
 
-function readRegisteredAccounts(): StoredAuthAccount[] {
-  try {
-    const raw = window.localStorage.getItem(STORAGE_KEYS.registeredAccounts);
-    if (!raw) return [];
+async function fetchProfile(userId: string): Promise<ProfileRow> {
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("id,email,full_name,role,status")
+    .eq("id", userId)
+    .single();
 
-    const parsed: unknown = JSON.parse(raw);
-    if (!Array.isArray(parsed) || !parsed.every(isStoredAccount)) {
-      removeStoredValue(STORAGE_KEYS.registeredAccounts);
-      return [];
-    }
-
-    return parsed;
-  } catch {
-    removeStoredValue(STORAGE_KEYS.registeredAccounts);
-    return [];
-  }
-}
-
-function writeRegisteredAccounts(accounts: StoredAuthAccount[]) {
-  try {
-    window.localStorage.setItem(
-      STORAGE_KEYS.registeredAccounts,
-      JSON.stringify(accounts),
-    );
-  } catch {
+  if (error || !data) {
     throw new AuthError(
-      "storage_unavailable",
-      "This browser could not store the demonstration account.",
+      "inactive_account",
+      error?.message ??
+        "This account is not linked to an active ForgeFleet profile.",
     );
   }
+  return data as ProfileRow;
 }
 
-function writeSession(session: AuthSession) {
-  try {
-    window.localStorage.setItem(STORAGE_KEYS.session, JSON.stringify(session));
-  } catch {
+function toAuthUser(profile: ProfileRow): AuthUser {
+  return {
+    email: profile.email,
+    fullName: profile.full_name,
+    id: profile.id,
+    role: profile.role,
+  };
+}
+
+function toAppSession(profile: ProfileRow, createdAt?: string): AuthSession {
+  return {
+    createdAt: createdAt ?? new Date().toISOString(),
+    user: toAuthUser(profile),
+    version: 1,
+  };
+}
+
+async function hydrateSupabaseUser(user: SupabaseUser): Promise<AuthSession> {
+  const profile = await fetchProfile(user.id);
+  if (profile.status !== "active") {
+    await supabase.auth.signOut();
     throw new AuthError(
-      "storage_unavailable",
-      "This browser could not persist the demonstration session.",
+      "inactive_account",
+      "This ForgeFleet account is inactive.",
     );
   }
-}
-
-function toAuthUser(account: StoredAuthAccount): AuthUser {
-  const { email, fullName, id, role } = account;
-  return { email, fullName, id, role };
-}
-
-function allAccounts() {
-  return [...DEVELOPMENT_ACCOUNTS, ...readRegisteredAccounts()];
-}
-
-function createAccountId() {
-  if (typeof window.crypto?.randomUUID === "function") {
-    return `registered-user-${window.crypto.randomUUID()}`;
-  }
-
-  return `registered-user-${Date.now().toString(36)}`;
+  return toAppSession(profile, user.created_at);
 }
 
 export const authService = {
-  getSession(): AuthSession | null {
-    try {
-      const raw = window.localStorage.getItem(STORAGE_KEYS.session);
-      if (!raw) return null;
-
-      const parsed: unknown = JSON.parse(raw);
-      if (!isAuthSession(parsed)) {
-        removeStoredValue(STORAGE_KEYS.session);
-        return null;
-      }
-
-      return parsed;
-    } catch {
-      removeStoredValue(STORAGE_KEYS.session);
-      return null;
-    }
+  async getSession(): Promise<AuthSession | null> {
+    const { data, error } = await supabase.auth.getSession();
+    if (error) throw toAuthError(error);
+    if (!data.session?.user) return null;
+    return hydrateSupabaseUser(data.session.user);
   },
 
   getRememberedEmail() {
     try {
-      return window.localStorage.getItem(STORAGE_KEYS.rememberedEmail) ?? "";
+      return window.localStorage.getItem(REMEMBERED_EMAIL_KEY) ?? "";
     } catch {
       return "";
     }
   },
 
-  updateSessionUser(input: ProfileUpdateInput): AuthSession {
-    const session = this.getSession();
-    if (!session) {
-      throw new AuthError(
-        "invalid_credentials",
-        "A signed-in session is required to update the profile.",
-      );
-    }
-    const nextSession: AuthSession = {
-      ...session,
-      user: {
-        ...session.user,
-        email: normalizeEmail(input.email),
-        fullName: input.fullName.trim(),
-      },
-    };
-    writeSession(nextSession);
-    return nextSession;
-  },
-
   async signIn(credentials: SignInCredentials): Promise<AuthSession> {
-    await delay();
     const email = normalizeEmail(credentials.email);
-    const account = allAccounts().find(
-      (candidate) =>
-        normalizeEmail(candidate.email) === email &&
-        candidate.password === credentials.password,
-    );
-
-    if (!account) {
-      throw new AuthError(
-        "invalid_credentials",
-        "Email or password is invalid for this frontend demonstration.",
-      );
-    }
-
-    const session: AuthSession = {
-      createdAt: new Date().toISOString(),
-      user: toAuthUser(account),
-      version: 1,
-    };
-
-    writeSession(session);
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password: credentials.password,
+    });
+    if (error || !data.user) throw toAuthError(error);
 
     try {
-      if (credentials.rememberEmail) {
-        window.localStorage.setItem(STORAGE_KEYS.rememberedEmail, email);
-      } else {
-        window.localStorage.removeItem(STORAGE_KEYS.rememberedEmail);
-      }
-    } catch {
-      // Remembering the email is optional and must not invalidate a session.
+      const session = await hydrateSupabaseUser(data.user);
+      saveRememberedEmail(credentials.rememberEmail ? email : null);
+      return session;
+    } catch (profileError) {
+      await supabase.auth.signOut();
+      throw profileError;
     }
-
-    return session;
   },
 
   async register(input: RegistrationInput): Promise<AuthUser> {
-    await delay();
-
-    if (
-      !isRequired(input.fullName) ||
-      !isValidEmail(input.email) ||
-      !isValidPassword(input.password) ||
-      input.password !== input.confirmPassword ||
-      !isUserRole(input.role)
-    ) {
-      throw new AuthError(
-        "invalid_registration",
-        "The registration details did not pass validation.",
-      );
-    }
-
-    if (
-      REGISTRATION_POLICY.restrictedRoles.includes(
-        input.role as (typeof REGISTRATION_POLICY.restrictedRoles)[number],
-      )
-    ) {
+    if (input.role !== "driver" && input.role !== "mechanic") {
       throw new AuthError(
         "registration_restricted",
-        "Administrator and Manager accounts require a future provisioned approval workflow and cannot be self-registered in this prototype.",
+        "Administrator and Manager accounts must be invited by an administrator.",
       );
     }
 
-    const email = normalizeEmail(input.email);
-    if (
-      allAccounts().some((account) => normalizeEmail(account.email) === email)
-    ) {
-      throw new AuthError(
-        "duplicate_email",
-        "That email is already registered in this browser.",
-      );
-    }
-
-    const account: StoredAuthAccount = {
-      email,
-      fullName: input.fullName.trim(),
-      id: createAccountId(),
+    const { data, error } = await supabase.auth.signUp({
+      email: normalizeEmail(input.email),
       password: input.password,
+      options: {
+        data: {
+          full_name: input.fullName.trim(),
+          license_number:
+            input.role === "driver" ? input.licenseNumber?.trim() : undefined,
+          role: input.role,
+          specialty:
+            input.role === "mechanic" ? input.specialty?.trim() : undefined,
+        },
+      },
+    });
+    if (error || !data.user) throw toAuthError(error);
+
+    return {
+      email: normalizeEmail(input.email),
+      fullName: input.fullName.trim(),
+      id: data.user.id,
       role: input.role,
     };
-
-    writeRegisteredAccounts([...readRegisteredAccounts(), account]);
-    return toAuthUser(account);
   },
 
   async requestPasswordReset(email: string) {
-    await delay();
-    if (!isValidEmail(email)) {
-      throw new AuthError(
-        "invalid_registration",
-        "Enter a valid email address.",
-      );
-    }
-  },
-
-  removeRegistration(userId: string) {
-    const remainingAccounts = readRegisteredAccounts().filter(
-      (account) => account.id !== userId,
+    const redirectTo = `${window.location.origin}/reset-password`;
+    const { error } = await supabase.auth.resetPasswordForEmail(
+      normalizeEmail(email),
+      { redirectTo },
     );
-    writeRegisteredAccounts(remainingAccounts);
+    if (error) throw toAuthError(error);
   },
 
-  signOut() {
-    removeStoredValue(STORAGE_KEYS.session);
+  async updateCurrentUser(input: ProfileUpdateInput): Promise<AuthSession> {
+    const fullName = input.fullName.trim();
+    const email = normalizeEmail(input.email);
+    const { data, error } = await supabase.auth.updateUser({
+      email,
+      data: { full_name: fullName },
+    });
+    if (error || !data.user) throw toAuthError(error);
+
+    const { error: profileError } = await supabase
+      .from("profiles")
+      .update({ full_name: fullName })
+      .eq("id", data.user.id);
+    if (profileError) throw toAuthError(profileError);
+    return hydrateSupabaseUser(data.user);
+  },
+
+  async updatePassword(password: string) {
+    const { error } = await supabase.auth.updateUser({ password });
+    if (error) throw toAuthError(error);
+  },
+
+  onAuthStateChange(callback: (session: AuthSession | null) => void) {
+    const { data } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!session?.user) {
+        callback(null);
+        return;
+      }
+      void hydrateSupabaseUser(session.user)
+        .then(callback)
+        .catch(() => callback(null));
+    });
+    return () => data.subscription.unsubscribe();
+  },
+
+  async signOut() {
+    const { error } = await supabase.auth.signOut();
+    if (error) throw toAuthError(error);
   },
 };
-
-export const AUTH_STORAGE_KEYS = STORAGE_KEYS;

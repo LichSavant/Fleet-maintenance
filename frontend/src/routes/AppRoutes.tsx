@@ -12,6 +12,7 @@ const ForgotPasswordPage = lazy(
   () => import("../pages/auth/ForgotPasswordPage"),
 );
 const SignInPage = lazy(() => import("../pages/auth/SignInPage"));
+const ResetPasswordPage = lazy(() => import("../pages/auth/ResetPasswordPage"));
 const SignUpPage = lazy(() => import("../pages/auth/SignUpPage"));
 const AdminDashboardPage = lazy(
   () => import("../pages/admin/AdminDashboardPage"),
@@ -65,6 +66,10 @@ export function AppRoutes() {
           <Route path="sign-up" element={<SignUpPage />} />
           <Route path="forgot-password" element={<ForgotPasswordPage />} />
         </Route>
+      </Route>
+
+      <Route element={<AuthLayout />}>
+        <Route path="reset-password" element={<ResetPasswordPage />} />
       </Route>
 
       <Route element={<ProtectedRoute />}>

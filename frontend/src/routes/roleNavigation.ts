@@ -13,16 +13,16 @@ export const ROLE_NAVIGATION: Record<UserRole, readonly NavigationItem[]> = {
     { icon: "driver", label: "Drivers", to: "/management/drivers" },
     { icon: "wrench", label: "Mechanics", to: "/management/mechanics" },
     { icon: "truck", label: "Vehicles", to: "/management/vehicles" },
-    { icon: "truck", label: "Assignments", to: "/operations/assignments" },
-    { icon: "wrench", label: "Schedules", to: "/maintenance/schedules" },
-    { icon: "wrench", label: "Work orders", to: "/maintenance/work-orders" },
-    { icon: "layers", label: "Service history", to: "/maintenance/history" },
+    { icon: "assignment", label: "Assignments", to: "/operations/assignments" },
+    { icon: "calendar", label: "Schedules", to: "/maintenance/schedules" },
+    { icon: "clipboard", label: "Work orders", to: "/maintenance/work-orders" },
+    { icon: "history", label: "Service history", to: "/maintenance/history" },
     {
-      icon: "layers",
+      icon: "settings",
       label: "Service types",
       to: "/maintenance/service-types",
     },
-    { icon: "dashboard", label: "Reports", to: "/reports" },
+    { icon: "reports", label: "Reports", to: "/reports" },
   ],
   manager: [
     {
@@ -33,16 +33,16 @@ export const ROLE_NAVIGATION: Record<UserRole, readonly NavigationItem[]> = {
     { icon: "driver", label: "Drivers", to: "/management/drivers" },
     { icon: "wrench", label: "Mechanics", to: "/management/mechanics" },
     { icon: "truck", label: "Vehicles", to: "/management/vehicles" },
-    { icon: "truck", label: "Assignments", to: "/operations/assignments" },
-    { icon: "wrench", label: "Schedules", to: "/maintenance/schedules" },
-    { icon: "wrench", label: "Work orders", to: "/maintenance/work-orders" },
-    { icon: "layers", label: "Service history", to: "/maintenance/history" },
+    { icon: "assignment", label: "Assignments", to: "/operations/assignments" },
+    { icon: "calendar", label: "Schedules", to: "/maintenance/schedules" },
+    { icon: "clipboard", label: "Work orders", to: "/maintenance/work-orders" },
+    { icon: "history", label: "Service history", to: "/maintenance/history" },
     {
-      icon: "layers",
+      icon: "settings",
       label: "Service types",
       to: "/maintenance/service-types",
     },
-    { icon: "dashboard", label: "Reports", to: "/reports" },
+    { icon: "reports", label: "Reports", to: "/reports" },
   ],
   mechanic: [
     {
@@ -50,8 +50,12 @@ export const ROLE_NAVIGATION: Record<UserRole, readonly NavigationItem[]> = {
       label: "Mechanic dashboard",
       to: getRoleDashboardPath("mechanic"),
     },
-    { icon: "wrench", label: "My work orders", to: "/maintenance/work-orders" },
-    { icon: "layers", label: "Service history", to: "/maintenance/history" },
+    {
+      icon: "clipboard",
+      label: "My work orders",
+      to: "/maintenance/work-orders",
+    },
+    { icon: "history", label: "Service history", to: "/maintenance/history" },
   ],
   driver: [
     {
@@ -59,9 +63,9 @@ export const ROLE_NAVIGATION: Record<UserRole, readonly NavigationItem[]> = {
       label: "Driver dashboard",
       to: getRoleDashboardPath("driver"),
     },
-    { icon: "truck", label: "Mileage", to: "/driver/mileage" },
+    { icon: "gauge", label: "Mileage", to: "/driver/mileage" },
     { icon: "wrench", label: "Maintenance", to: "/driver/maintenance" },
-    { icon: "layers", label: "Service history", to: "/maintenance/history" },
+    { icon: "history", label: "Service history", to: "/maintenance/history" },
   ],
 };
 

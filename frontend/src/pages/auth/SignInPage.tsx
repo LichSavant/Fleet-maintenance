@@ -2,7 +2,6 @@ import { useState, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
 import { Button } from "../../components/ui/Button";
-import { DevelopmentAccounts } from "../../components/common/DevelopmentAccounts";
 import { FormField } from "../../components/ui/FormField";
 import { Input } from "../../components/ui/Input";
 import { useAuth } from "../../hooks/useAuth";
@@ -29,15 +28,11 @@ export default function SignInPage() {
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const nextErrors: SignInErrors = {};
-
     if (!isValidEmail(email)) nextErrors.email = "Enter a valid email address.";
-    if (!isRequired(password))
-      nextErrors.password = "Enter your demo password.";
-
+    if (!isRequired(password)) nextErrors.password = "Enter your password.";
     setErrors(nextErrors);
     setFormError("");
-    if (Object.keys(nextErrors).length > 0) return;
-
+    if (Object.keys(nextErrors).length) return;
     setIsSubmitting(true);
     try {
       const session = await signIn({ email, password, rememberEmail });
@@ -46,7 +41,7 @@ export default function SignInPage() {
       setFormError(
         error instanceof AuthError
           ? error.message
-          : "ForgeFleet could not complete the demonstration sign in.",
+          : "ForgeFleet could not sign you in.",
       );
     } finally {
       setIsSubmitting(false);
@@ -54,13 +49,12 @@ export default function SignInPage() {
   };
 
   return (
-    <div className="auth-form-card">
-      <p className="eyebrow">Welcome back</p>
-      <h2>Sign in to your fleet</h2>
+    <div className="auth-form-card glass-panel">
+      <p className="auth-form-kicker">Sign in</p>
+      <h2>Access your ForgeFleet account</h2>
       <p className="auth-intro">
-        Your active account determines the destination workspace.
+        Your verified role opens the correct operational workspace.
       </p>
-
       <form className="auth-form" noValidate onSubmit={handleSubmit}>
         <FormField
           error={errors.email}
@@ -71,12 +65,11 @@ export default function SignInPage() {
           <Input
             autoComplete="username"
             onChange={(event) => setEmail(event.target.value)}
-            placeholder="driver@forgefleet.demo"
+            placeholder="you@example.com"
             type="email"
             value={email}
           />
         </FormField>
-
         <div className="password-field">
           <FormField
             error={errors.password}
@@ -87,6 +80,7 @@ export default function SignInPage() {
             <Input
               autoComplete="current-password"
               onChange={(event) => setPassword(event.target.value)}
+              placeholder="Enter your password"
               type={showPassword ? "text" : "password"}
               value={password}
             />
@@ -94,13 +88,12 @@ export default function SignInPage() {
           <button
             aria-pressed={showPassword}
             className="password-toggle"
-            onClick={() => setShowPassword((visible) => !visible)}
+            onClick={() => setShowPassword((value) => !value)}
             type="button"
           >
             {showPassword ? "Hide" : "Show"}
           </button>
         </div>
-
         <div className="auth-form-options">
           <label className="checkbox-label">
             <input
@@ -108,35 +101,30 @@ export default function SignInPage() {
               onChange={(event) => setRememberEmail(event.target.checked)}
               type="checkbox"
             />
-            Remember my email
+            Remember me
           </label>
           <Link to="/forgot-password">Forgot password?</Link>
         </div>
-
         {formError && (
           <p className="form-banner form-banner-error" role="alert">
             {formError}
           </p>
         )}
-
         <Button
           fullWidth
           isLoading={isSubmitting}
           type="submit"
           variant="primary"
         >
-          {isSubmitting ? "Signing in" : "Sign in"}
+          Sign in
         </Button>
       </form>
-
+      <p className="auth-role-note">
+        Access for Administrator, Manager, Mechanic, and Driver accounts.
+      </p>
       <p className="auth-switch">
         New to ForgeFleet? <Link to="/sign-up">Create an account</Link>
       </p>
-      <p className="prototype-disclosure">
-        Frontend demonstration only. Browser-stored credentials and route guards
-        are not secure authentication.
-      </p>
-      <DevelopmentAccounts />
     </div>
   );
 }

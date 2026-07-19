@@ -61,6 +61,7 @@ export interface MechanicAccountInput {
 
 export interface VehicleInput {
   fleetNumber: string;
+  imageUrl?: string | null;
   manufacturer: string;
   mileage: number;
   model: string;

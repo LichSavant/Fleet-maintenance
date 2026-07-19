@@ -1,99 +1,165 @@
-# ForgeFleet React frontend
+# ForgeFleet
 
-This directory contains the active ForgeFleet application. It is a React 19, Vite 8, and strict TypeScript frontend with React Router, accessible reusable components, plain CSS, and centralized browser-persisted demonstration services.
+ForgeFleet is a role-based fleet-maintenance SaaS application built with React, strict TypeScript, Vite, Supabase Auth, PostgreSQL, Row-Level Security, and a Supabase Edge Function for privileged identity operations.
 
-## Requirements and installation
+The visual system is a polished light iOS/SaaS interface based on the approved ForgeFleet concept: cinematic logistics authentication screens, frosted-glass surfaces, restrained blue accents, responsive role navigation, data-driven dashboard cards, charts, tables, status indicators, and accessible operational forms.
 
-- Node.js `^20.19.0` or `>=22.12.0`
-- npm
+## Scope implemented
+
+### Administrator
+
+- Administrator dashboard
+- Users
+- Drivers
+- Mechanics
+- Vehicles
+- Assignments
+- Schedules
+- Work orders
+- Service history
+- Service types
+- Reports
+
+### Manager
+
+- Manager dashboard
+- Drivers
+- Mechanics
+- Vehicles
+- Assignments
+- Schedules
+- Work orders
+- Service history
+- Service types
+- Reports
+
+### Mechanic
+
+- Mechanic dashboard
+- Assigned work orders
+- Work-order start, notes, and completion workflow
+- Service history
+
+### Driver
+
+- Driver dashboard
+- Mileage submission
+- Assigned-vehicle maintenance view
+- Service history
+
+### Shared account features
+
+- Supabase email/password sign in
+- Driver and Mechanic self-registration
+- Administrator/Manager invitation workflow
+- Email password recovery and password reset
+- Profile and password updates
+- Role guards, notifications, and responsive navigation
+
+## No placeholder business data
+
+Dashboard totals, charts, lists, reports, assignments, work orders, mileage, schedules, notifications, and service history are calculated from the records visible to the signed-in user through Supabase. The project contains no demo account credentials and no mock fleet dataset. Empty databases render intentional empty states rather than fabricated totals.
+
+Static copy such as labels, headings, route names, and validation messages remains in the frontend because it is interface content, not fleet data.
+
+## Architecture
+
+```text
+React + TypeScript UI
+        |
+@supabase/supabase-js
+        |
+Supabase Auth + PostgreSQL + RLS
+        |
+admin-users Edge Function
+```
+
+Important boundaries:
+
+- `src/services/authService.ts` owns browser-safe authentication operations.
+- `src/services/fleetDataService.ts` is the fleet query and mutation boundary.
+- `src/hooks/useFleetData.ts` synchronizes the authenticated UI with remote records.
+- View services derive dashboards and tables from the current RLS-filtered snapshot.
+- `supabase/forgefleet_complete.sql` defines tables, constraints, triggers, policies, views, and initial service-type reference records.
+- `supabase/functions/admin-users/index.ts` performs privileged Auth Admin operations without exposing the service-role key to the browser.
+
+## Database integrity and authorization
+
+The database enforces:
+
+- One active vehicle per driver and one active driver per vehicle
+- Active/available driver and active-vehicle assignment eligibility
+- Valid assignment and service dates
+- Controlled work-order state transitions
+- Mechanic ownership of assigned work
+- Required service notes before completion
+- Automatic service-history snapshots
+- Driver mileage ownership and non-decreasing odometers
+- Role-filtered records through RLS
+- Server-generated activity and notification records
+- Protected Admin/Manager account provisioning
+
+Frontend role guards improve navigation, while PostgreSQL RLS remains the authoritative data-access control.
+
+## Setup
+
+Detailed Supabase instructions are in:
+
+```text
+supabase/SETUP.md
+```
+
+Quick start:
 
 ```bash
 npm install
+cp .env.example .env.local
 npm run dev
+```
+
+Required environment variables:
+
+```dotenv
+VITE_SUPABASE_URL=https://YOUR_PROJECT_REF.supabase.co
+VITE_SUPABASE_PUBLISHABLE_KEY=YOUR_PUBLISHABLE_OR_ANON_KEY
 ```
 
 ## Commands
 
-| Command                | Purpose                                               |
-| ---------------------- | ----------------------------------------------------- |
-| `npm run dev`          | Start the Vite development server                     |
-| `npm run format`       | Check Prettier formatting                             |
-| `npm run format:write` | Apply Prettier formatting                             |
-| `npm run lint`         | Run ESLint                                            |
-| `npm run typecheck`    | Run strict TypeScript checking without emitting files |
-| `npm run test`         | Run the Vitest suite                                  |
-| `npm run build`        | Type-check and build production assets                |
-| `npm run preview`      | Serve the production build locally                    |
-
-## Mock accounts
-
-| Role          | Email                      | Password      |
-| ------------- | -------------------------- | ------------- |
-| Administrator | `admin@forgefleet.demo`    | `admin123`    |
-| Manager       | `manager@forgefleet.demo`  | `manager123`  |
-| Mechanic      | `mechanic@forgefleet.demo` | `mechanic123` |
-| Driver        | `driver@forgefleet.demo`   | `driver123`   |
-
-Credentials live only in `src/data/mockAccounts.ts`. Driver and Mechanic self-registration creates both the browser credential and its linked operational profile. Privileged self-registration remains disabled.
+| Command                | Purpose                                              |
+| ---------------------- | ---------------------------------------------------- |
+| `npm run dev`          | Start the Vite development server                    |
+| `npm run format`       | Check Prettier formatting                            |
+| `npm run format:write` | Apply Prettier formatting                            |
+| `npm run lint`         | Run ESLint                                           |
+| `npm run test`         | Run Vitest                                           |
+| `npm run typecheck`    | Run strict TypeScript validation                     |
+| `npm run build`        | Type-check and build production assets               |
+| `npm run verify`       | Run formatting, linting, tests, and production build |
+| `npm run preview`      | Preview the production build                         |
 
 ## Routes
 
-Public and authentication:
+Public/authentication:
 
-- `/` — landing page
-- `/sign-in` — development sign in
-- `/sign-up` — Driver and Mechanic self-registration
-- `/forgot-password` — frontend-only recovery demonstration
+- `/`
+- `/sign-in`
+- `/sign-up`
+- `/forgot-password`
+- `/reset-password`
 
-Dashboards:
+Authenticated routes are role guarded and match the modules listed under **Scope implemented**. Unknown paths render the not-found screen, while cross-role requests redirect through authorization guards.
 
-- `/admin/dashboard`
-- `/manager/dashboard`
-- `/mechanic/dashboard`
-- `/driver/dashboard`
+## Validation status
 
-Management and operations:
+The delivered workspace has been checked with:
 
-- `/management/users` — Administrator only
-- `/management/drivers`, `/management/mechanics`, `/management/vehicles` — Administrator and Manager
-- `/operations/assignments` — Administrator and Manager
-- `/maintenance/schedules` — Administrator and Manager
-- `/maintenance/work-orders` — Administrator, Manager, and assigned Mechanic behavior
-- `/maintenance/history` — role-filtered history
-- `/maintenance/service-types` — Administrator management with Manager visibility
-- `/driver/maintenance`, `/driver/mileage` — Driver only
-- `/reports` — Administrator and Manager
-- `/notifications`, `/profile` — all authenticated roles
+```text
+Prettier
+ESLint
+Vitest
+TypeScript --noEmit
+Vite production build
+```
 
-Unknown routes render the not-found screen. Signed-out and cross-role requests are redirected through typed route guards.
-
-## Architecture
-
-- `src/data/mockFleetData.ts` is the normalized seed data source.
-- `src/services/fleetDataService.ts` is the only fleet persistence and mutation boundary.
-- View services derive dashboard, management, operations, shared-account, and report models.
-- `AuthContext` owns the active session. Pages and components do not read browser storage directly.
-- Role profiles and current assignments are resolved from the authenticated user ID; the UI never assumes a seeded current driver, mechanic, or vehicle.
-- `DashboardLayout` is shared by all authenticated roles and receives typed role navigation.
-
-## Data integrity rules
-
-- Driver and vehicle assignments cannot conflict.
-- Assignment and maintenance dates are validated.
-- Work-order transitions follow the allowed state graph.
-- Historical assignments and completed service remain linked and visible.
-- Deactivation is blocked when active relationships would be broken.
-- Mileage must belong to the signed-in driver's active vehicle and cannot lower the odometer.
-- Notifications are generated from linked assignment, schedule, work-order, completion, reminder, and mileage actions.
-
-## Accessibility and responsive behavior
-
-Inputs have programmatic labels, errors use described relationships, icon-only buttons have accessible names, statuses include text, focus styles are visible, and dialogs trap focus, close with Escape, and restore focus. The mobile navigation drawer also traps focus and restores it to its opener. Tables use captions and contained horizontal scrolling.
-
-The shared shell is designed for approximately 360px, 768px, 1024px, and 1440px widths. Sidebars scroll vertically when necessary; forms and cards stack at mobile widths; modals constrain their height and scroll their bodies.
-
-## Frontend-only limitations
-
-This application does not provide secure authentication or server authorization. Browser records can be inspected or modified by the user, data is not synchronized across devices, and concurrent edits are unsupported. Password changes, email delivery, server audit logs, real-time notifications, and production reports remain backend work. Profile contact-email changes do not change seeded development login credentials.
-
-The archived static prototype is in `../legacy-static/` and is not imported by this application.
+A live end-to-end Supabase test still requires your own project URL, publishable key, applied SQL, deployed Edge Function, and email configuration. Those credentials are deliberately not embedded in the workspace.

@@ -13,14 +13,21 @@ import { useFleetData } from "../../hooks/useFleetData";
 import { sharedViewService } from "../../services/sharedViewService";
 import { formatRole } from "../../utils/roleRoutes";
 import { getStatusTone } from "../../utils/statusTone";
-import { isValidEmail } from "../../utils/validation";
+import { isValidEmail, isValidPassword } from "../../utils/validation";
 
 export default function ProfilePage() {
-  const { updateProfile, user } = useAuth();
+  const { updatePassword, updateProfile, user } = useAuth();
   const { data, error, isLoading, reload } = useFleetData();
   const [fullName, setFullName] = useState(user?.fullName ?? "");
   const [email, setEmail] = useState(user?.email ?? "");
   const [isSaving, setIsSaving] = useState(false);
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
+  const [passwordFeedback, setPasswordFeedback] = useState<{
+    message: string;
+    tone: "error" | "success";
+  } | null>(null);
   const [feedback, setFeedback] = useState<{
     message: string;
     tone: "error" | "success";
@@ -72,6 +79,46 @@ export default function ProfilePage() {
       });
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const changePassword = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setPasswordFeedback(null);
+    if (!isValidPassword(newPassword)) {
+      setPasswordFeedback({
+        message: "Use at least eight characters with letters and numbers.",
+        tone: "error",
+      });
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setPasswordFeedback({
+        message: "Passwords do not match.",
+        tone: "error",
+      });
+      return;
+    }
+
+    setIsChangingPassword(true);
+    try {
+      await updatePassword(newPassword);
+      setNewPassword("");
+      setConfirmPassword("");
+      setPasswordFeedback({
+        message: "Password changed successfully.",
+        tone: "success",
+      });
+    } catch (passwordError) {
+      setPasswordFeedback({
+        message:
+          passwordError instanceof Error
+            ? passwordError.message
+            : "Your password could not be changed.",
+        tone: "error",
+      });
+    } finally {
+      setIsChangingPassword(false);
     }
   };
 
@@ -153,12 +200,40 @@ export default function ProfilePage() {
           </form>
         </Card>
       </div>
-      <Card eyebrow="Backend required" title="Password change unavailable">
-        <p className="muted-copy">
-          Password changes are intentionally unavailable in this frontend-only
-          prototype. A secure backend identity service is required before this
-          feature can be enabled.
-        </p>
+      <Card eyebrow="Account security" title="Change password">
+        <form className="profile-form" onSubmit={changePassword}>
+          <FormField id="profile-new-password" label="New password" required>
+            <Input
+              autoComplete="new-password"
+              onChange={(event) => setNewPassword(event.target.value)}
+              type="password"
+              value={newPassword}
+            />
+          </FormField>
+          <FormField
+            id="profile-confirm-password"
+            label="Confirm new password"
+            required
+          >
+            <Input
+              autoComplete="new-password"
+              onChange={(event) => setConfirmPassword(event.target.value)}
+              type="password"
+              value={confirmPassword}
+            />
+          </FormField>
+          {passwordFeedback && (
+            <p
+              className={`management-feedback management-feedback-${passwordFeedback.tone}`}
+              role={passwordFeedback.tone === "error" ? "alert" : "status"}
+            >
+              {passwordFeedback.message}
+            </p>
+          )}
+          <Button isLoading={isChangingPassword} type="submit">
+            Change password
+          </Button>
+        </form>
       </Card>
     </div>
   );
