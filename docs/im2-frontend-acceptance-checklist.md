@@ -152,17 +152,17 @@ This checklist is intentionally left unchecked for formal acceptance testing. Th
 
 ## Required capabilities
 
-- [ ] Vehicle inventory management
+- [x] Vehicle inventory management
   - Expected behavior: An authorized administrator or manager can list, search, filter, sort, view, create, edit, and deactivate vehicles; identifiers remain unique; odometer history cannot be lowered or bypassed; all mutations enforce permission and create audit events.
   - Relevant files: `frontend/src/pages/shared/VehiclesPage.tsx`, `frontend/src/components/common/VehicleFormModal.tsx`, `frontend/src/services/fleetDataService.ts`, `frontend/src/services/managementViewService.ts`, `frontend/src/types/fleet.ts`, `frontend/src/types/management.ts`
   - Manual test: Sign in as administrator and manager, exercise every vehicle action including duplicate plate/fleet number and linked-record deactivation; then verify a driver/mechanic is denied and verify odometer/audit history remains consistent.
-  - Status: Partial overall — vehicle identity, controlled status, numeric validation, active-link deactivation protection, and historical archival are implemented; management service authorization and complete vehicle audit coverage remain separate open items.
+  - Status: Implemented — vehicle identity, controlled status, numeric validation, active-link deactivation protection, historical archival, administrator/manager service authorization, and create/update/deactivate audit coverage are implemented.
 
 - [ ] Driver directory
   - Expected behavior: Authorized roles can search, filter, sort, view, create, edit, and deactivate linked driver accounts/profiles without producing a profile-less user or a user-less profile; a created account follows the documented sign-in/provisioning policy.
   - Relevant files: `frontend/src/pages/shared/DriversPage.tsx`, `frontend/src/components/common/AccountFormModal.tsx`, `frontend/src/services/fleetDataService.ts`, `frontend/src/services/managementViewService.ts`, `frontend/src/types/fleet.ts`
   - Manual test: Create a driver, confirm both records share the correct user ID, test duplicates and deactivation with/without an active assignment, then verify the new account's documented authentication behavior.
-  - Status: Partial overall — user/profile linkage, unique employee/license validation, inactive-driver assignment rejection, non-destructive deactivation, and historical retention are implemented; service authorization and authentication-account provisioning remain separate open items.
+  - Status: Partial overall — user/profile linkage, unique employee/license validation, service authorization, mutation auditing, inactive-driver assignment rejection, non-destructive deactivation, and historical retention are implemented; authentication-account provisioning remains a separate open item.
 
 - [x] Driver-to-vehicle assignment
   - Expected behavior: An administrator or manager can assign one eligible driver to one available vehicle, cannot create overlapping active assignments on either side, can end an assignment with a valid date, and can still view historical assignments.
@@ -216,7 +216,7 @@ This checklist is intentionally left unchecked for formal acceptance testing. Th
   - Expected behavior: Routes, navigation, visible actions, read scopes, and service mutations use one documented permission matrix; direct URL and direct service-call attempts fail for unauthorized roles; current-user data is session-derived.
   - Relevant files: `frontend/src/routes/AppRoutes.tsx`, `frontend/src/routes/ProtectedRoute.tsx`, `frontend/src/routes/RoleRoute.tsx`, `frontend/src/routes/roleNavigation.ts`, `frontend/src/context/AuthContext.tsx`, `frontend/src/services/fleetDataService.ts`
   - Manual test: Use each development account to open every route and exercise every mutation, including calls from developer tools; compare UI controls with service authorization and confirm mechanics/drivers only see their linked records.
-  - Status: Partial — maintenance routes, mechanic scoping, driver read-only views, and work-order service permissions now agree; unrelated management services still lack complete actor checks.
+  - Status: Partial — route guards, management/audit routes, management mutation actor checks, mechanic scoping, driver read-only views, and work-order permissions now agree; authorization remains browser-only and authentication/fleet-account provisioning is still split.
 
 - [x] Search and filtering
   - Expected behavior: Vehicle, driver, mechanic, mileage-log, assignment, work-order, and service-history views search their documented joined fields case-insensitively; status, relationship, date, and mileage filters combine; every searchable management view exposes active filter state, one clear action, pagination reset where applicable, and an accurate no-results state.
@@ -230,11 +230,11 @@ This checklist is intentionally left unchecked for formal acceptance testing. Th
   - Manual test: Record one controlled mutation per report category; filter inventory, history, mileage, service, and assignment sections; verify table rows, meters, and totals change together; independently calculate logged distance, maintenance costs, and mileage due states; then clear filters and confirm empty states and complete totals.
   - Status: Implemented — all ten required reports are sourced from current `FleetState` relationships, costs use recorded maintenance-history values and PHP currency formatting, mileage uses kilometre formatting, automatic service reports consume only centralized mileage calculations, and no calendar/fuel/GPS/parts/payment/accounting report or incomplete export control exists.
 
-- [ ] Audit logging
+- [x] Audit logging
   - Expected behavior: Every create, update, deactivate, assignment, odometer, maintenance, service-type, and relevant account action produces an immutable audit event containing actor, action, entity, and timestamp; authorized users can search/filter the log.
-  - Relevant files: `frontend/src/types/fleet.ts`, `frontend/src/services/fleetDataService.ts`, `frontend/src/data/mockFleetData.ts`, `frontend/src/pages/admin/AdminDashboardPage.tsx`
+  - Relevant files: `frontend/src/types/fleet.ts`, `frontend/src/services/fleetDataService.ts`, `frontend/src/services/auditLogService.ts`, `frontend/src/context/AuthContext.tsx`, `frontend/src/pages/admin/AuditLogPage.tsx`, `frontend/src/routes/AppRoutes.tsx`
   - Manual test: Perform every mutation once, count and inspect the resulting audit entries, attempt an unauthorized mutation, refresh, and verify missing/failed actions are handled according to policy and prior entries cannot be edited through the UI.
-  - Status: Partial — work-order creation, assignment, transitions, notes, completion history, explicit history correction, mileage, assignments, schedules, and service-type mutations are audited; some unrelated management/auth events and a dedicated searchable log view remain open.
+  - Status: Implemented for the frontend demonstration — sign-in/out, user/profile and vehicle management, assignments, mileage, service types, work-order creation/assignment/start/completion, and history corrections create browser-persisted events with timestamp, immutable actor display name/ID/role, entity, action, and description. The searchable administrator route is explicitly labelled as non-secure frontend demonstration data.
 
 - [ ] Input validation
   - Expected behavior: Required, format, range, uniqueness, date, transition, mileage, interval, and relationship rules are enforced both in forms and in services with clear errors; impossible dates and non-finite values fail.
@@ -248,11 +248,11 @@ This checklist is intentionally left unchecked for formal acceptance testing. Th
   - Manual test: Attempt each deactivation with active/historical links, tamper stored foreign keys and record shapes, simulate storage-write failure, update identity fields, refresh/sign out/sign in, and confirm records remain linked or fail closed.
   - Status: Partial overall — fleet foreign keys, role-profile ownership, unique identifiers, single active assignments, status consistency, deactivation protections, and historical retention now fail closed; synchronization between the separate authentication and fleet-account stores remains open.
 
-- [ ] Notifications generated by meaningful fleet events
+- [x] Notifications generated by meaningful fleet events
   - Expected behavior: Documented assignment, mileage, maintenance-due, work assignment, completion, cancellation, and status events create one relevant notification for the correct current account; unread count is derived and destinations are authorized real routes.
   - Relevant files: `frontend/src/services/fleetDataService.ts`, `frontend/src/services/sharedViewService.ts`, `frontend/src/pages/shared/NotificationsPage.tsx`, `frontend/src/components/layout/AuthenticatedHeaderActions.tsx`, `frontend/src/types/fleet.ts`
   - Manual test: Trigger every documented event for two drivers and two mechanics, verify recipients/unread counts/destinations, mark one/all read, and confirm no cross-account disclosure or duplicate notice.
-  - Status: Partial — assignment, schedule, work assignment, completion, cancellation, and mileage-threshold events generate account-scoped notifications with authorized destinations; notification coverage for unrelated account-management events remains outside this stage.
+  - Status: Implemented — assignment start/end, mechanic work assignment, due-soon/due-now/overdue mileage crossings, maintenance completion, and vehicle under-maintenance/available transitions generate account-scoped notices with valid role-aware routes. Unread totals, mark-one, mark-all, date/type display, empty state, and exact threshold duplicate suppression are covered.
 
 ## Required scope limitations
 
@@ -312,8 +312,8 @@ This checklist is intentionally left unchecked for formal acceptance testing. Th
 
 ## Validation baseline recorded during audit
 
-- [ ] Automated validation remains green after IM2 alignment
+- [x] Automated validation remains green after IM2 alignment
   - Expected behavior: `npm run lint`, `npm run typecheck`, `npm run test`, and `npm run build` all exit successfully, with new mileage-boundary, authorization, audit, and integrity tests included.
   - Relevant files: `frontend/package.json`, all `frontend/src/**/*.test.ts` and `frontend/src/**/*.test.tsx`
   - Manual test: Run all four commands from `frontend/` and compare the test inventory with every requirement above.
-  - Status: Current data-derived reports baseline passes: format passed; lint passed; typecheck passed; 12 test files/102 tests passed; build passed with 127 modules transformed. Report coverage independently verifies all ten report bases, filtered cost totals/averages, per-vehicle logged distance, mileage-only service categories despite changed schedule dates, combined filters, and zero-result totals; prior search, dashboard, and relationship-integrity coverage remains green.
+  - Status: Current audit/notification baseline passes: format passed; lint passed; typecheck passed; 13 test files/115 tests passed; build passed with 129 modules transformed. Coverage now includes authentication and management audit events, immutable actor snapshots, assignment and mechanic-work events, role-protected audit access, unread/read actions, vehicle-state notices, due-soon/due-now/overdue recipients, exact threshold duplicate suppression, and version-4 audit migration; prior report, search, dashboard, maintenance, and integrity coverage remains green.

@@ -177,10 +177,14 @@ describe("shared frontend features", () => {
       .vehicles.find((item) => item.id === "vehicle-axiom-2048");
     expect(vehicle).toBeDefined();
     const { id, ...vehicleInput } = vehicle!;
-    await fleetDataService.updateVehicle(id, {
-      ...vehicleInput,
-      status: "Maintenance",
-    });
+    await fleetDataService.updateVehicle(
+      id,
+      {
+        ...vehicleInput,
+        status: "Maintenance",
+      },
+      "demo-user-manager",
+    );
 
     await expect(
       fleetDataService.submitMileage(
@@ -217,10 +221,14 @@ describe("shared frontend features", () => {
     const { id, ...vehicleInput } = vehicle!;
 
     await expect(
-      fleetDataService.updateVehicle(id, {
-        ...vehicleInput,
-        currentMileage: vehicleInput.currentMileage + 1,
-      }),
+      fleetDataService.updateVehicle(
+        id,
+        {
+          ...vehicleInput,
+          currentMileage: vehicleInput.currentMileage + 1,
+        },
+        "demo-user-manager",
+      ),
     ).rejects.toMatchObject({
       code: "invalid_record",
       message: expect.stringContaining("driver's mileage workflow"),

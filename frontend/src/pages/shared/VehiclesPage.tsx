@@ -18,6 +18,7 @@ import { Select } from "../../components/ui/Select";
 import { StatusBadge } from "../../components/ui/StatusBadge";
 import { Table, type TableColumn } from "../../components/ui/Table";
 import { useFleetData } from "../../hooks/useFleetData";
+import { useAuth } from "../../hooks/useAuth";
 import { fleetDataService } from "../../services/fleetDataService";
 import { managementViewService } from "../../services/managementViewService";
 import { recordFilterService } from "../../services/recordFilterService";
@@ -31,6 +32,7 @@ import { getStatusTone } from "../../utils/statusTone";
 const PAGE_SIZE = 5;
 
 export default function VehiclesPage() {
+  const { user: currentUser } = useAuth();
   const { data, error, isLoading, reload } = useFleetData();
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState<VehicleStatus | "all">("all");
@@ -154,11 +156,16 @@ export default function VehiclesPage() {
     : null;
 
   const saveVehicle = async (values: VehicleInput) => {
+    if (!currentUser) return;
     if (editing) {
-      await fleetDataService.updateVehicle(editing.vehicle.id, values);
+      await fleetDataService.updateVehicle(
+        editing.vehicle.id,
+        values,
+        currentUser.id,
+      );
       setFeedback({ message: "Vehicle record updated.", tone: "success" });
     } else {
-      await fleetDataService.createVehicle(values);
+      await fleetDataService.createVehicle(values, currentUser.id);
       setFeedback({ message: "Vehicle added to the fleet.", tone: "success" });
     }
     setIsFormOpen(false);
@@ -167,10 +174,13 @@ export default function VehiclesPage() {
   };
 
   const confirmDeactivation = async () => {
-    if (!deactivating) return;
+    if (!deactivating || !currentUser) return;
     setIsDeactivating(true);
     try {
-      await fleetDataService.deactivateVehicle(deactivating.vehicle.id);
+      await fleetDataService.deactivateVehicle(
+        deactivating.vehicle.id,
+        currentUser.id,
+      );
       setFeedback({
         message: "Vehicle marked out of service.",
         tone: "success",

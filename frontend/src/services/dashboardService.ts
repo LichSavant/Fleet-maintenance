@@ -94,7 +94,7 @@ function enrichActivity(data: FleetState, events: readonly AuditEvent[]) {
   return byNewest(events, (event) => event.createdAt).map<ActivityView>(
     (event) => ({
       ...event,
-      actorName: getUserName(data, event.userId),
+      actorName: event.userDisplayName,
     }),
   );
 }

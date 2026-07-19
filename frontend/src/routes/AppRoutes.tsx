@@ -17,6 +17,7 @@ const AdminDashboardPage = lazy(
   () => import("../pages/admin/AdminDashboardPage"),
 );
 const UsersPage = lazy(() => import("../pages/admin/UsersPage"));
+const AuditLogPage = lazy(() => import("../pages/admin/AuditLogPage"));
 const DriverDashboardPage = lazy(
   () => import("../pages/driver/DriverDashboardPage"),
 );
@@ -73,6 +74,7 @@ export function AppRoutes() {
         <Route element={<RoleRoute allowedRoles={["admin"]} />}>
           <Route element={<AuthenticatedDashboardLayout />}>
             <Route path="admin/dashboard" element={<AdminDashboardPage />} />
+            <Route path="admin/audit-log" element={<AuditLogPage />} />
             <Route path="management/users" element={<UsersPage />} />
           </Route>
         </Route>

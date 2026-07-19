@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 
 import { useAuth } from "../../hooks/useAuth";
+import { sharedViewService } from "../../services/sharedViewService";
 import type { Notification } from "../../types/fleet";
 import { formatRole } from "../../utils/roleRoutes";
 import { Button } from "../ui/Button";
@@ -29,9 +30,8 @@ export function AuthenticatedHeaderActions({
   const { signOut, user } = useAuth();
   const [openPanel, setOpenPanel] = useState<OpenPanel>(null);
   const actionsRef = useRef<HTMLDivElement>(null);
-  const unreadCount = notifications.filter(
-    (notification) => !notification.readAt,
-  ).length;
+  const unreadCount =
+    sharedViewService.getUnreadNotificationCount(notifications);
 
   useEffect(() => {
     if (!openPanel) return;

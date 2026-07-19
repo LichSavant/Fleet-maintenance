@@ -30,11 +30,14 @@ describe("fleet operational workflows", () => {
   });
 
   it("rejects driver and vehicle conflicts for active assignments", async () => {
-    const user = await fleetDataService.createDriver({
-      email: "conflict.driver@forgefleet.demo",
-      fullName: "Conflict Driver",
-      licenseNumber: "N09-26-000111",
-    });
+    const user = await fleetDataService.createDriver(
+      {
+        email: "conflict.driver@forgefleet.demo",
+        fullName: "Conflict Driver",
+        licenseNumber: "N09-26-000111",
+      },
+      "demo-user-admin",
+    );
     const profile = fleetDataService
       .getSnapshot()
       .driverProfiles.find((item) => item.userId === user.id);
@@ -63,12 +66,15 @@ describe("fleet operational workflows", () => {
   });
 
   it("rejects inactive drivers and vehicles under maintenance", async () => {
-    const user = await fleetDataService.createDriver({
-      email: "inactive.assignment.driver@forgefleet.demo",
-      employeeNumber: "DRV-9010",
-      fullName: "Inactive Assignment Driver",
-      licenseNumber: "N10-26-000111",
-    });
+    const user = await fleetDataService.createDriver(
+      {
+        email: "inactive.assignment.driver@forgefleet.demo",
+        employeeNumber: "DRV-9010",
+        fullName: "Inactive Assignment Driver",
+        licenseNumber: "N10-26-000111",
+      },
+      "demo-user-admin",
+    );
     const profile = fleetDataService
       .getSnapshot()
       .driverProfiles.find((item) => item.userId === user.id);
@@ -100,12 +106,15 @@ describe("fleet operational workflows", () => {
   });
 
   it("rejects inactive mechanics for new work assignments", async () => {
-    const user = await fleetDataService.createMechanic({
-      email: "inactive.assignment.mechanic@forgefleet.demo",
-      employeeNumber: "MEC-9010",
-      fullName: "Inactive Assignment Mechanic",
-      specialization: "Hydraulics",
-    });
+    const user = await fleetDataService.createMechanic(
+      {
+        email: "inactive.assignment.mechanic@forgefleet.demo",
+        employeeNumber: "MEC-9010",
+        fullName: "Inactive Assignment Mechanic",
+        specialization: "Hydraulics",
+      },
+      "demo-user-admin",
+    );
     const profile = fleetDataService
       .getSnapshot()
       .mechanicProfiles.find((item) => item.userId === user.id);

@@ -171,6 +171,31 @@ describe("AppRoutes", () => {
     ).toBeInTheDocument();
   });
 
+  it("protects the frontend demonstration audit log for administrators", async () => {
+    await authService.signIn({
+      email: "admin@forgefleet.demo",
+      password: "admin123",
+    });
+    const adminRoute = renderRoutes("/admin/audit-log");
+    expect(
+      await screen.findByRole("heading", { name: "Audit log", level: 1 }),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/not secure server auditing/i)).toBeInTheDocument();
+    adminRoute.unmount();
+
+    authService.signOut();
+    await authService.signIn({
+      email: "manager@forgefleet.demo",
+      password: "manager123",
+    });
+    renderRoutes("/admin/audit-log");
+    expect(
+      await screen.findByRole("heading", {
+        name: "This workspace is not available to your role.",
+      }),
+    ).toBeInTheDocument();
+  });
+
   it("enforces operational routes for managers, mechanics, and drivers", async () => {
     await authService.signIn({
       email: "mechanic@forgefleet.demo",
@@ -343,6 +368,36 @@ describe("AppRoutes", () => {
     expect(
       await screen.findByRole("heading", { name: "Sign in to your fleet" }),
     ).toBeInTheDocument();
+    expect(fleetDataService.getSnapshot().auditEvents).toContainEqual(
+      expect.objectContaining({
+        action: "Signed out",
+        userId: "demo-user-driver",
+        userDisplayName: "Carlo Reyes",
+      }),
+    );
+  });
+
+  it("records successful sign in through the authentication context", async () => {
+    renderRoutes("/sign-in");
+    fireEvent.change(await screen.findByLabelText(/^Email address/), {
+      target: { value: "manager@forgefleet.demo" },
+    });
+    fireEvent.change(screen.getByLabelText(/^Password/), {
+      target: { value: "manager123" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Sign in" }));
+
+    expect(
+      await screen.findByRole("heading", { name: "Manager dashboard" }),
+    ).toBeInTheDocument();
+    expect(fleetDataService.getSnapshot().auditEvents).toContainEqual(
+      expect.objectContaining({
+        action: "Signed in",
+        role: "manager",
+        userId: "demo-user-manager",
+        userDisplayName: "Maria Santos",
+      }),
+    );
   });
 
   it("renders the not-found page for unknown routes", async () => {

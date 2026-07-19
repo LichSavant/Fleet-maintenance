@@ -483,6 +483,7 @@ export const MOCK_FLEET_DATA: FleetState = {
       id: "activity-vehicle-status",
       role: "admin",
       userId: "demo-user-admin",
+      userDisplayName: "Felix Dela Cruz",
     },
     {
       action: "Created maintenance schedule",
@@ -493,6 +494,7 @@ export const MOCK_FLEET_DATA: FleetState = {
       id: "activity-schedule-created",
       role: "manager",
       userId: "demo-user-manager",
+      userDisplayName: "Maria Santos",
     },
     {
       action: "Updated maintenance task",
@@ -503,6 +505,7 @@ export const MOCK_FLEET_DATA: FleetState = {
       id: "activity-maintenance-update",
       role: "mechanic",
       userId: "demo-user-mechanic",
+      userDisplayName: "Noel Ramos",
     },
     {
       action: "Submitted mileage",
@@ -513,6 +516,7 @@ export const MOCK_FLEET_DATA: FleetState = {
       id: "activity-mileage-submission",
       role: "driver",
       userId: "demo-user-driver",
+      userDisplayName: "Carlo Reyes",
     },
   ],
 };

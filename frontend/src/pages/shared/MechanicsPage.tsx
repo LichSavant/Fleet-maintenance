@@ -137,16 +137,24 @@ export default function MechanicsPage() {
     : null;
 
   const saveMechanic = async (values: UserAccountInput) => {
+    if (!currentUser) return;
     if (editing) {
-      await fleetDataService.updateUser(editing.user.id, values);
+      await fleetDataService.updateUser(
+        editing.user.id,
+        values,
+        currentUser.id,
+      );
       setFeedback({ message: "Mechanic account updated.", tone: "success" });
     } else {
-      await fleetDataService.createMechanic({
-        email: values.email,
-        employeeNumber: values.employeeNumber,
-        fullName: values.fullName,
-        specialization: values.specialization ?? "",
-      });
+      await fleetDataService.createMechanic(
+        {
+          email: values.email,
+          employeeNumber: values.employeeNumber,
+          fullName: values.fullName,
+          specialization: values.specialization ?? "",
+        },
+        currentUser.id,
+      );
       setFeedback({
         message: "Mechanic account and profile created.",
         tone: "success",

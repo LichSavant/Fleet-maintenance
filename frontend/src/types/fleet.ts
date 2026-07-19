@@ -168,6 +168,7 @@ export interface Notification {
 export interface AuditEvent {
   id: string;
   userId: string;
+  userDisplayName: string;
   role: UserRole;
   action: string;
   entityType: AuditEntityType;

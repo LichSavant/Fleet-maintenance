@@ -150,16 +150,24 @@ export default function DriversPage() {
     : null;
 
   const saveDriver = async (values: UserAccountInput) => {
+    if (!currentUser) return;
     if (editing) {
-      await fleetDataService.updateUser(editing.user.id, values);
+      await fleetDataService.updateUser(
+        editing.user.id,
+        values,
+        currentUser.id,
+      );
       setFeedback({ message: "Driver account updated.", tone: "success" });
     } else {
-      await fleetDataService.createDriver({
-        email: values.email,
-        employeeNumber: values.employeeNumber,
-        fullName: values.fullName,
-        licenseNumber: values.licenseNumber ?? "",
-      });
+      await fleetDataService.createDriver(
+        {
+          email: values.email,
+          employeeNumber: values.employeeNumber,
+          fullName: values.fullName,
+          licenseNumber: values.licenseNumber ?? "",
+        },
+        currentUser.id,
+      );
       setFeedback({
         message: "Driver account and profile created.",
         tone: "success",

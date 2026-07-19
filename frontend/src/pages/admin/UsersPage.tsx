@@ -162,11 +162,16 @@ export default function UsersPage() {
   };
 
   const saveAccount = async (values: UserAccountInput) => {
+    if (!currentUser) return;
     if (editing) {
-      await fleetDataService.updateUser(editing.user.id, values);
+      await fleetDataService.updateUser(
+        editing.user.id,
+        values,
+        currentUser.id,
+      );
       setFeedback({ message: "User account updated.", tone: "success" });
     } else {
-      await fleetDataService.createUser(values);
+      await fleetDataService.createUser(values, currentUser.id);
       setFeedback({
         message: "User account and role profile created.",
         tone: "success",

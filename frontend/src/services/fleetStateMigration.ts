@@ -17,7 +17,7 @@ import type {
 import { VEHICLE_STATUSES } from "../types/fleet";
 import { isValidIsoDate } from "../utils/validation";
 
-export const FLEET_STATE_VERSION = 4 as const;
+export const FLEET_STATE_VERSION = 5 as const;
 
 export interface StoredFleetState {
   data: FleetState;
@@ -221,6 +221,7 @@ function isAuditEvent(value: unknown): value is AuditEvent {
   return (
     hasBaseFields(value) &&
     isString(value.userId) &&
+    isString(value.userDisplayName) &&
     ["admin", "manager", "mechanic", "driver"].includes(String(value.role)) &&
     isString(value.action) &&
     isString(value.entityType) &&
@@ -633,6 +634,8 @@ function migrateLegacyFleetData(value: unknown): FleetState | null {
           id: String(event.id ?? `audit-${index}`),
           role: userById.get(userId)?.role ?? "admin",
           userId,
+          userDisplayName:
+            userById.get(userId)?.fullName ?? "Unknown demonstration user",
         };
       },
     );
@@ -676,6 +679,30 @@ function migrateVersion3FleetData(value: unknown): FleetState | null {
       }),
     ),
   };
+  return migrateVersion4FleetData(migrated);
+}
+
+function migrateVersion4FleetData(value: unknown): FleetState | null {
+  if (
+    !isRecord(value) ||
+    !Array.isArray(value.users) ||
+    !Array.isArray(value.auditEvents)
+  ) {
+    return null;
+  }
+  const users = value.users.filter(isUser);
+  const userById = new Map(users.map((user) => [user.id, user]));
+  const migrated = {
+    ...value,
+    auditEvents: (value.auditEvents as UnknownRecord[]).map((event) => ({
+      ...event,
+      userDisplayName:
+        typeof event.userDisplayName === "string"
+          ? event.userDisplayName
+          : (userById.get(String(event.userId ?? ""))?.fullName ??
+            "Unknown demonstration user"),
+    })),
+  };
   return isValidFleetState(migrated) ? migrated : null;
 }
 
@@ -684,6 +711,7 @@ export function readStoredFleetState(value: unknown): FleetState | null {
   if (value.version === FLEET_STATE_VERSION) {
     return isValidFleetState(value.data) ? value.data : null;
   }
+  if (value.version === 4) return migrateVersion4FleetData(value.data);
   if (value.version === 3) return migrateVersion3FleetData(value.data);
   if (value.version === 2) return migrateLegacyFleetData(value.data);
   return null;

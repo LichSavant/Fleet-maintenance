@@ -10,6 +10,7 @@ export const ROLE_NAVIGATION: Record<UserRole, readonly NavigationItem[]> = {
       to: getRoleDashboardPath("admin"),
     },
     { icon: "users", label: "Users", to: "/management/users" },
+    { icon: "shield", label: "Audit log", to: "/admin/audit-log" },
     { icon: "driver", label: "Drivers", to: "/management/drivers" },
     { icon: "wrench", label: "Mechanics", to: "/management/mechanics" },
     { icon: "truck", label: "Vehicles", to: "/management/vehicles" },

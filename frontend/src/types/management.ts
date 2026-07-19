@@ -21,7 +21,8 @@ export type ManagementErrorCode =
   | "linked_record"
   | "not_found"
   | "self_deactivation"
-  | "storage_unavailable";
+  | "storage_unavailable"
+  | "unauthorized";
 
 export class ManagementError extends Error {
   code: ManagementErrorCode;

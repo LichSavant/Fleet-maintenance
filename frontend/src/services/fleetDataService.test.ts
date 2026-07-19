@@ -8,11 +8,14 @@ describe("fleetDataService", () => {
   });
 
   it("creates a driver user and linked profile atomically", async () => {
-    const user = await fleetDataService.createDriver({
-      email: "new.driver@forgefleet.demo",
-      fullName: "New Driver",
-      licenseNumber: "N03-26-998877",
-    });
+    const user = await fleetDataService.createDriver(
+      {
+        email: "new.driver@forgefleet.demo",
+        fullName: "New Driver",
+        licenseNumber: "N03-26-998877",
+      },
+      "demo-user-admin",
+    );
     const data = fleetDataService.getSnapshot();
     const profile = data.driverProfiles.find((item) => item.userId === user.id);
 
@@ -25,11 +28,14 @@ describe("fleetDataService", () => {
   });
 
   it("creates a mechanic user and linked active profile atomically", async () => {
-    const user = await fleetDataService.createMechanic({
-      email: "new.mechanic@forgefleet.demo",
-      fullName: "New Mechanic",
-      specialization: "Hydraulic systems",
-    });
+    const user = await fleetDataService.createMechanic(
+      {
+        email: "new.mechanic@forgefleet.demo",
+        fullName: "New Mechanic",
+        specialization: "Hydraulic systems",
+      },
+      "demo-user-admin",
+    );
     const profile = fleetDataService
       .getSnapshot()
       .mechanicProfiles.find((item) => item.userId === user.id);
@@ -44,21 +50,27 @@ describe("fleetDataService", () => {
 
   it("rejects duplicate emails and role-profile identifiers", async () => {
     await expect(
-      fleetDataService.createDriver({
-        email: "driver@forgefleet.demo",
-        fullName: "Duplicate Email",
-        licenseNumber: "NEW-LICENSE",
-      }),
+      fleetDataService.createDriver(
+        {
+          email: "driver@forgefleet.demo",
+          fullName: "Duplicate Email",
+          licenseNumber: "NEW-LICENSE",
+        },
+        "demo-user-admin",
+      ),
     ).rejects.toMatchObject({
       code: "duplicate_email",
     });
 
     await expect(
-      fleetDataService.createDriver({
-        email: "unique@forgefleet.demo",
-        fullName: "Duplicate License",
-        licenseNumber: "N01-23-456789",
-      }),
+      fleetDataService.createDriver(
+        {
+          email: "unique@forgefleet.demo",
+          fullName: "Duplicate License",
+          licenseNumber: "N01-23-456789",
+        },
+        "demo-user-admin",
+      ),
     ).rejects.toMatchObject({
       code: "duplicate_license",
     });
@@ -66,21 +78,27 @@ describe("fleetDataService", () => {
 
   it("rejects duplicate employee numbers across driver and mechanic profiles", async () => {
     await expect(
-      fleetDataService.createDriver({
-        email: "duplicate.employee.driver@forgefleet.demo",
-        employeeNumber: "MEC-2001",
-        fullName: "Duplicate Employee Driver",
-        licenseNumber: "NEW-EMPLOYEE-LICENSE",
-      }),
+      fleetDataService.createDriver(
+        {
+          email: "duplicate.employee.driver@forgefleet.demo",
+          employeeNumber: "MEC-2001",
+          fullName: "Duplicate Employee Driver",
+          licenseNumber: "NEW-EMPLOYEE-LICENSE",
+        },
+        "demo-user-admin",
+      ),
     ).rejects.toMatchObject({ code: "duplicate_employee_number" });
 
     await expect(
-      fleetDataService.createMechanic({
-        email: "duplicate.employee.mechanic@forgefleet.demo",
-        employeeNumber: "DRV-1001",
-        fullName: "Duplicate Employee Mechanic",
-        specialization: "Suspension",
-      }),
+      fleetDataService.createMechanic(
+        {
+          email: "duplicate.employee.mechanic@forgefleet.demo",
+          employeeNumber: "DRV-1001",
+          fullName: "Duplicate Employee Mechanic",
+          specialization: "Suspension",
+        },
+        "demo-user-admin",
+      ),
     ).rejects.toMatchObject({ code: "duplicate_employee_number" });
   });
 
@@ -91,11 +109,15 @@ describe("fleetDataService", () => {
     );
     expect(profile).toBeDefined();
 
-    await fleetDataService.updateUser("fleet-user-driver-liza", {
-      email: "liza.updated@forgefleet.demo",
-      fullName: "Liza Mendoza Updated",
-      licenseNumber: "N02-24-445566",
-    });
+    await fleetDataService.updateUser(
+      "fleet-user-driver-liza",
+      {
+        email: "liza.updated@forgefleet.demo",
+        fullName: "Liza Mendoza Updated",
+        licenseNumber: "N02-24-445566",
+      },
+      "demo-user-admin",
+    );
     const after = fleetDataService.getSnapshot();
 
     expect(
@@ -137,11 +159,14 @@ describe("fleetDataService", () => {
   });
 
   it("deactivates an unassigned driver while preserving the profile", async () => {
-    const user = await fleetDataService.createDriver({
-      email: "available.driver@forgefleet.demo",
-      fullName: "Available Driver",
-      licenseNumber: "N04-26-112244",
-    });
+    const user = await fleetDataService.createDriver(
+      {
+        email: "available.driver@forgefleet.demo",
+        fullName: "Available Driver",
+        licenseNumber: "N04-26-112244",
+      },
+      "demo-user-admin",
+    );
     const profile = fleetDataService
       .getSnapshot()
       .driverProfiles.find((item) => item.userId === user.id);
@@ -161,12 +186,15 @@ describe("fleetDataService", () => {
   });
 
   it("blocks mechanic deactivation while planned work is assigned", async () => {
-    const user = await fleetDataService.createMechanic({
-      email: "planned.mechanic@forgefleet.demo",
-      employeeNumber: "MEC-9020",
-      fullName: "Planned Work Mechanic",
-      specialization: "Preventive maintenance",
-    });
+    const user = await fleetDataService.createMechanic(
+      {
+        email: "planned.mechanic@forgefleet.demo",
+        employeeNumber: "MEC-9020",
+        fullName: "Planned Work Mechanic",
+        specialization: "Preventive maintenance",
+      },
+      "demo-user-admin",
+    );
     const profile = fleetDataService
       .getSnapshot()
       .mechanicProfiles.find((item) => item.userId === user.id);
@@ -188,23 +216,29 @@ describe("fleetDataService", () => {
 
   it("validates vehicle uniqueness and relationship protections", async () => {
     await expect(
-      fleetDataService.createVehicle({
-        currentMileage: 0,
-        fleetNumber: "FLT-2048",
-        make: "Test",
-        model: "Duplicate",
-        plateNumber: "NEW 1000",
-        status: "Active",
-        type: "Service Van",
-        vin: "TESTVIN0000000001",
-        year: 2026,
-      }),
+      fleetDataService.createVehicle(
+        {
+          currentMileage: 0,
+          fleetNumber: "FLT-2048",
+          make: "Test",
+          model: "Duplicate",
+          plateNumber: "NEW 1000",
+          status: "Active",
+          type: "Service Van",
+          vin: "TESTVIN0000000001",
+          year: 2026,
+        },
+        "demo-user-admin",
+      ),
     ).rejects.toMatchObject({
       code: "duplicate_fleet_number",
     });
 
     await expect(
-      fleetDataService.deactivateVehicle("vehicle-axiom-2048"),
+      fleetDataService.deactivateVehicle(
+        "vehicle-axiom-2048",
+        "demo-user-admin",
+      ),
     ).rejects.toMatchObject({
       code: "linked_record",
     });
@@ -213,31 +247,38 @@ describe("fleetDataService", () => {
       .getSnapshot()
       .vehicles.find((item) => item.id === "vehicle-axiom-2048");
     await expect(
-      fleetDataService.updateVehicle("vehicle-axiom-2048", {
-        currentMileage: linkedVehicle?.currentMileage ?? 0,
-        fleetNumber: linkedVehicle?.fleetNumber ?? "",
-        make: linkedVehicle?.make ?? "",
-        model: linkedVehicle?.model ?? "",
-        plateNumber: linkedVehicle?.plateNumber ?? "",
-        status: "Out of Service",
-        type: linkedVehicle?.type ?? "",
-        vin: linkedVehicle?.vin ?? "",
-        year: linkedVehicle?.year ?? 2026,
-      }),
+      fleetDataService.updateVehicle(
+        "vehicle-axiom-2048",
+        {
+          currentMileage: linkedVehicle?.currentMileage ?? 0,
+          fleetNumber: linkedVehicle?.fleetNumber ?? "",
+          make: linkedVehicle?.make ?? "",
+          model: linkedVehicle?.model ?? "",
+          plateNumber: linkedVehicle?.plateNumber ?? "",
+          status: "Out of Service",
+          type: linkedVehicle?.type ?? "",
+          vin: linkedVehicle?.vin ?? "",
+          year: linkedVehicle?.year ?? 2026,
+        },
+        "demo-user-admin",
+      ),
     ).rejects.toMatchObject({ code: "linked_record" });
 
-    const vehicle = await fleetDataService.createVehicle({
-      currentMileage: 250,
-      fleetNumber: "FLT-9001",
-      make: "Forge Motors",
-      model: "Workshop Runner",
-      plateNumber: "FF 9001",
-      status: "Inspection",
-      type: "Service Van",
-      vin: "TESTVIN0000009001",
-      year: 2026,
-    });
-    await fleetDataService.deactivateVehicle(vehicle.id);
+    const vehicle = await fleetDataService.createVehicle(
+      {
+        currentMileage: 250,
+        fleetNumber: "FLT-9001",
+        make: "Forge Motors",
+        model: "Workshop Runner",
+        plateNumber: "FF 9001",
+        status: "Inspection",
+        type: "Service Van",
+        vin: "TESTVIN0000009001",
+        year: 2026,
+      },
+      "demo-user-admin",
+    );
+    await fleetDataService.deactivateVehicle(vehicle.id, "demo-user-admin");
 
     expect(
       fleetDataService
@@ -248,31 +289,37 @@ describe("fleetDataService", () => {
 
   it("rejects duplicate vehicle plates and VINs independently", async () => {
     await expect(
-      fleetDataService.createVehicle({
-        currentMileage: 100,
-        fleetNumber: "FLT-PLATE-TEST",
-        make: "Forge Motors",
-        model: "Plate Test",
-        plateNumber: "ff 2048",
-        status: "Active",
-        type: "Service Van",
-        vin: "UNIQUEVINPLATE0001",
-        year: 2026,
-      }),
+      fleetDataService.createVehicle(
+        {
+          currentMileage: 100,
+          fleetNumber: "FLT-PLATE-TEST",
+          make: "Forge Motors",
+          model: "Plate Test",
+          plateNumber: "ff 2048",
+          status: "Active",
+          type: "Service Van",
+          vin: "UNIQUEVINPLATE0001",
+          year: 2026,
+        },
+        "demo-user-admin",
+      ),
     ).rejects.toMatchObject({ code: "duplicate_plate" });
 
     await expect(
-      fleetDataService.createVehicle({
-        currentMileage: 100,
-        fleetNumber: "FLT-VIN-TEST",
-        make: "Forge Motors",
-        model: "VIN Test",
-        plateNumber: "UNIQUE PLATE",
-        status: "Active",
-        type: "Service Van",
-        vin: "1ffaxiom204800001",
-        year: 2026,
-      }),
+      fleetDataService.createVehicle(
+        {
+          currentMileage: 100,
+          fleetNumber: "FLT-VIN-TEST",
+          make: "Forge Motors",
+          model: "VIN Test",
+          plateNumber: "UNIQUE PLATE",
+          status: "Active",
+          type: "Service Van",
+          vin: "1ffaxiom204800001",
+          year: 2026,
+        },
+        "demo-user-admin",
+      ),
     ).rejects.toMatchObject({ code: "duplicate_vin" });
   });
 
@@ -290,19 +337,28 @@ describe("fleetDataService", () => {
     };
 
     await expect(
-      fleetDataService.createVehicle({ ...validVehicle, year: Number.NaN }),
+      fleetDataService.createVehicle(
+        { ...validVehicle, year: Number.NaN },
+        "demo-user-admin",
+      ),
     ).rejects.toMatchObject({ code: "invalid_record" });
     await expect(
-      fleetDataService.createVehicle({
-        ...validVehicle,
-        currentMileage: -1,
-      }),
+      fleetDataService.createVehicle(
+        {
+          ...validVehicle,
+          currentMileage: -1,
+        },
+        "demo-user-admin",
+      ),
     ).rejects.toMatchObject({ code: "invalid_record" });
     await expect(
-      fleetDataService.createVehicle({
-        ...validVehicle,
-        status: "Retired" as typeof validVehicle.status,
-      }),
+      fleetDataService.createVehicle(
+        {
+          ...validVehicle,
+          status: "Retired" as typeof validVehicle.status,
+        },
+        "demo-user-admin",
+      ),
     ).rejects.toMatchObject({ code: "invalid_record" });
   });
 
@@ -312,7 +368,10 @@ describe("fleetDataService", () => {
       "2026-07-19",
       "demo-user-manager",
     );
-    await fleetDataService.deactivateVehicle("vehicle-forge-0631");
+    await fleetDataService.deactivateVehicle(
+      "vehicle-forge-0631",
+      "demo-user-admin",
+    );
     await fleetDataService.deactivateDriver(
       "driver-profile-liza",
       "demo-user-admin",
@@ -364,7 +423,7 @@ describe("fleetDataService", () => {
     });
   });
 
-  it("migrates valid v2 browser data into the canonical v4 state", () => {
+  it("migrates valid v2 browser data into the canonical v5 state", () => {
     const legacyData = {
       assignments: [
         {
@@ -510,6 +569,36 @@ describe("fleetDataService", () => {
       window.localStorage.getItem(FLEET_STORAGE_KEYS.current),
     ).not.toBeNull();
     expect(window.localStorage.getItem(FLEET_STORAGE_KEYS.legacy)).toBeNull();
+  });
+
+  it("migrates v4 audit events with an immutable actor display name", () => {
+    const version4Data = structuredClone(
+      fleetDataService.getSnapshot(),
+    ) as unknown as Record<string, unknown>;
+    version4Data.auditEvents = (
+      version4Data.auditEvents as Array<Record<string, unknown>>
+    ).map((event) => {
+      const legacyEvent = { ...event };
+      delete legacyEvent.userDisplayName;
+      return legacyEvent;
+    });
+    window.localStorage.setItem(
+      FLEET_STORAGE_KEYS.previous,
+      JSON.stringify({ data: version4Data, version: 4 }),
+    );
+
+    const migrated = fleetDataService.getSnapshot();
+
+    expect(migrated.auditEvents).toContainEqual(
+      expect.objectContaining({
+        id: "activity-mileage-submission",
+        userDisplayName: "Carlo Reyes",
+      }),
+    );
+    expect(
+      window.localStorage.getItem(FLEET_STORAGE_KEYS.current),
+    ).not.toBeNull();
+    expect(window.localStorage.getItem(FLEET_STORAGE_KEYS.previous)).toBeNull();
   });
 
   it("fails closed to seeded data when persisted relationships are malformed", () => {

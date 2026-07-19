@@ -44,9 +44,8 @@ export default function NotificationsPage() {
   if (!data || !user) return null;
 
   const notifications = sharedViewService.getNotifications(data, user);
-  const unreadCount = notifications.filter(
-    (notification) => !notification.readAt,
-  ).length;
+  const unreadCount =
+    sharedViewService.getUnreadNotificationCount(notifications);
 
   return (
     <div className="role-dashboard-page">

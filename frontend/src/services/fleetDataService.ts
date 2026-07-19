@@ -42,7 +42,8 @@ import {
 } from "./fleetStateMigration";
 import { mileageService } from "./mileageService";
 
-const STORAGE_KEY = "forgefleet.frontend.fleet-data.v4";
+const STORAGE_KEY = "forgefleet.frontend.fleet-data.v5";
+const PREVIOUS_STORAGE_KEY = "forgefleet.frontend.fleet-data.v4";
 const LEGACY_STORAGE_KEY = "forgefleet.frontend.fleet-data.v3";
 const OLDER_STORAGE_KEY = "forgefleet.frontend.fleet-data.v2";
 const DEMO_DELAY_MS = 120;
@@ -81,18 +82,28 @@ function readData(): MutableFleetData {
       removeStoredValue(STORAGE_KEY);
     }
 
-    for (const legacyKey of [LEGACY_STORAGE_KEY, OLDER_STORAGE_KEY]) {
-      const legacyRaw = window.localStorage.getItem(legacyKey);
-      if (legacyRaw) {
-        const migrated = readStoredFleetState(JSON.parse(legacyRaw) as unknown);
-        if (migrated) {
-          window.localStorage.setItem(
-            STORAGE_KEY,
-            JSON.stringify(createStoredFleetState(migrated)),
+    for (const legacyKey of [
+      PREVIOUS_STORAGE_KEY,
+      LEGACY_STORAGE_KEY,
+      OLDER_STORAGE_KEY,
+    ]) {
+      try {
+        const legacyRaw = window.localStorage.getItem(legacyKey);
+        if (legacyRaw) {
+          const migrated = readStoredFleetState(
+            JSON.parse(legacyRaw) as unknown,
           );
+          if (migrated) {
+            window.localStorage.setItem(
+              STORAGE_KEY,
+              JSON.stringify(createStoredFleetState(migrated)),
+            );
+            removeStoredValue(legacyKey);
+            return cloneData(migrated);
+          }
           removeStoredValue(legacyKey);
-          return cloneData(migrated);
         }
+      } catch {
         removeStoredValue(legacyKey);
       }
     }
@@ -119,6 +130,7 @@ function writeData(data: MutableFleetData) {
 
 export const FLEET_STORAGE_KEYS = {
   current: STORAGE_KEY,
+  previous: PREVIOUS_STORAGE_KEY,
   legacy: LEGACY_STORAGE_KEY,
   legacyV2: OLDER_STORAGE_KEY,
   version: FLEET_STATE_VERSION,
@@ -210,20 +222,22 @@ function addRoleProfile(
   data: MutableFleetData,
   user: User,
   input: UserAccountInput,
-) {
+): string | null {
   if (user.role === "driver") {
     ensureUniqueLicense(data, input.licenseNumber ?? "");
     const employeeNumber =
       input.employeeNumber?.trim() || `DRV-${user.id.slice(-8).toUpperCase()}`;
     ensureUniqueEmployeeNumber(data, employeeNumber);
-    data.driverProfiles.push({
+    const profile = {
       employeeNumber,
       id: createId("driver-profile"),
       licenseNumber: input.licenseNumber?.trim() ?? "",
       phone: input.phone?.trim() ?? "",
       status: "Available",
       userId: user.id,
-    });
+    } satisfies MutableFleetData["driverProfiles"][number];
+    data.driverProfiles.push(profile);
+    return profile.id;
   } else if (user.role === "mechanic") {
     if (!isRequired(input.specialization ?? "")) {
       throw new ManagementError(
@@ -234,30 +248,50 @@ function addRoleProfile(
     const employeeNumber =
       input.employeeNumber?.trim() || `MEC-${user.id.slice(-8).toUpperCase()}`;
     ensureUniqueEmployeeNumber(data, employeeNumber);
-    data.mechanicProfiles.push({
+    const profile = {
       employeeNumber,
       id: createId("mechanic-profile"),
       phone: input.phone?.trim() ?? "",
       specialization: input.specialization?.trim() ?? "",
       status: "Active",
       userId: user.id,
-    });
+    } satisfies MutableFleetData["mechanicProfiles"][number];
+    data.mechanicProfiles.push(profile);
+    return profile.id;
   } else if (user.role === "manager") {
     if (!isRequired(input.depot ?? "")) {
       throw new ManagementError("invalid_record", "Enter a manager depot.");
     }
-    data.managerProfiles.push({
+    const profile = {
       depot: input.depot?.trim() ?? "",
       id: createId("manager-profile"),
       userId: user.id,
-    });
+    } satisfies MutableFleetData["managerProfiles"][number];
+    data.managerProfiles.push(profile);
+    return profile.id;
   }
+  return null;
 }
 
 function getUser(data: MutableFleetData, userId: string) {
   const user = data.users.find((item) => item.id === userId);
   if (!user) throw new ManagementError("not_found", "User account not found.");
   return user;
+}
+
+function requireManagementRole(
+  data: MutableFleetData,
+  actorUserId: string,
+  roles: User["role"][],
+) {
+  const actor = getUser(data, actorUserId);
+  if (actor.status !== "Active" || !roles.includes(actor.role)) {
+    throw new ManagementError(
+      "unauthorized",
+      "Your current role cannot perform this management action.",
+    );
+  }
+  return actor;
 }
 
 function validateVehicle(
@@ -434,6 +468,7 @@ function logActivity(
     id: createId("activity"),
     role: actor.role,
     userId: actorUserId,
+    userDisplayName: actor.fullName,
   });
 }
 
@@ -446,6 +481,74 @@ function addNotification(
     createdAt: new Date().toISOString(),
     id: createId("notification"),
     readAt: null,
+  });
+}
+
+function addNotificationOnce(
+  data: MutableFleetData,
+  notification: Omit<Notification, "createdAt" | "id" | "readAt">,
+) {
+  const duplicate = data.notifications.some(
+    (item) =>
+      item.userId === notification.userId &&
+      item.type === notification.type &&
+      item.title === notification.title &&
+      item.message === notification.message &&
+      item.relatedRoute === notification.relatedRoute,
+  );
+  if (!duplicate) addNotification(data, notification);
+}
+
+function getVehicleNotificationRecipients(
+  data: MutableFleetData,
+  vehicleId: string,
+) {
+  const recipientIds = new Set(
+    data.users
+      .filter(
+        (user) =>
+          user.status === "Active" &&
+          (user.role === "admin" || user.role === "manager"),
+      )
+      .map((user) => user.id),
+  );
+  const assignment = data.assignments.find(
+    (item) => item.vehicleId === vehicleId && item.status === "Active",
+  );
+  const driver = assignment
+    ? data.driverProfiles.find((item) => item.id === assignment.driverId)
+    : undefined;
+  if (driver) recipientIds.add(driver.userId);
+  return recipientIds;
+}
+
+function notifyVehicleStatusChange(
+  data: MutableFleetData,
+  vehicle: Vehicle,
+  previousStatus: Vehicle["status"],
+) {
+  if (previousStatus === vehicle.status) return;
+  const enteredMaintenance = vehicle.status === "Maintenance";
+  const returnedToAvailable =
+    vehicle.status === "Active" && previousStatus !== "Active";
+  if (!enteredMaintenance && !returnedToAvailable) return;
+
+  getVehicleNotificationRecipients(data, vehicle.id).forEach((userId) => {
+    const recipient = getUser(data, userId);
+    addNotification(data, {
+      message: enteredMaintenance
+        ? `${vehicle.fleetNumber} is now under maintenance.`
+        : `${vehicle.fleetNumber} has returned to available status.`,
+      relatedRoute:
+        recipient.role === "driver"
+          ? "/driver/maintenance"
+          : "/management/vehicles",
+      title: enteredMaintenance
+        ? "Vehicle under maintenance"
+        : "Vehicle available",
+      type: "Maintenance",
+      userId,
+    });
   });
 }
 
@@ -527,9 +630,23 @@ export const fleetDataService = {
     return readData();
   },
 
-  async createUser(input: UserAccountInput) {
+  async createUser(input: UserAccountInput, actorUserId: string) {
     await delay();
     const data = readData();
+    const actor = requireManagementRole(data, actorUserId, [
+      "admin",
+      "manager",
+    ]);
+    if (
+      actor.role === "manager" &&
+      input.role !== "driver" &&
+      input.role !== "mechanic"
+    ) {
+      throw new ManagementError(
+        "unauthorized",
+        "Managers may create only driver or mechanic accounts.",
+      );
+    }
     validatePerson(input.fullName, input.email);
     ensureUniqueEmail(data, input.email);
     const user: User = {
@@ -539,8 +656,26 @@ export const fleetDataService = {
       role: input.role,
       status: "Active",
     };
-    addRoleProfile(data, user, input);
+    const profileId = addRoleProfile(data, user, input);
     data.users.push(user);
+    logActivity(
+      data,
+      actorUserId,
+      "Created user",
+      "user",
+      user.id,
+      `${user.fullName} (${user.role})`,
+    );
+    if (profileId && (user.role === "driver" || user.role === "mechanic")) {
+      logActivity(
+        data,
+        actorUserId,
+        `Created ${user.role} profile`,
+        "profile",
+        profileId,
+        user.fullName,
+      );
+    }
     writeData(data);
     return user;
   },
@@ -569,21 +704,57 @@ export const fleetDataService = {
       ...authUser,
       status: "Active",
     };
-    addRoleProfile(data, user, {
+    const profileId = addRoleProfile(data, user, {
       ...input,
       email: user.email,
       fullName: user.fullName,
       role: user.role,
     });
     data.users.push(user);
+    logActivity(
+      data,
+      user.id,
+      "Created user",
+      "user",
+      user.id,
+      `${user.fullName} (${user.role} self-registration)`,
+    );
+    if (profileId) {
+      logActivity(
+        data,
+        user.id,
+        `Created ${user.role} profile`,
+        "profile",
+        profileId,
+        user.fullName,
+      );
+    }
     writeData(data);
     return user;
   },
 
-  async updateUser(userId: string, input: UserAccountUpdateInput) {
+  async updateUser(
+    userId: string,
+    input: UserAccountUpdateInput,
+    actorUserId: string,
+  ) {
     await delay();
     const data = readData();
+    const actor = requireManagementRole(data, actorUserId, [
+      "admin",
+      "manager",
+    ]);
     const user = getUser(data, userId);
+    if (
+      actor.role === "manager" &&
+      user.role !== "driver" &&
+      user.role !== "mechanic"
+    ) {
+      throw new ManagementError(
+        "unauthorized",
+        "Managers may update only driver or mechanic accounts.",
+      );
+    }
     validatePerson(input.fullName, input.email);
     ensureUniqueEmail(data, input.email, userId);
     user.email = normalize(input.email);
@@ -627,22 +798,44 @@ export const fleetDataService = {
       }
       manager.depot = input.depot?.trim() ?? "";
     }
+    logActivity(
+      data,
+      actorUserId,
+      "Updated user",
+      "user",
+      user.id,
+      `${user.fullName} (${user.role})`,
+    );
     writeData(data);
     return user;
   },
 
-  async createDriver(input: DriverAccountInput) {
-    return this.createUser({ ...input, role: "driver" });
+  async createDriver(input: DriverAccountInput, actorUserId: string) {
+    return this.createUser({ ...input, role: "driver" }, actorUserId);
   },
 
-  async createMechanic(input: MechanicAccountInput) {
-    return this.createUser({ ...input, role: "mechanic" });
+  async createMechanic(input: MechanicAccountInput, actorUserId: string) {
+    return this.createUser({ ...input, role: "mechanic" }, actorUserId);
   },
 
   async deactivateUser(userId: string, actorUserId: string) {
     await delay();
     const data = readData();
+    const actor = requireManagementRole(data, actorUserId, [
+      "admin",
+      "manager",
+    ]);
     const user = getUser(data, userId);
+    if (
+      actor.role === "manager" &&
+      user.role !== "driver" &&
+      user.role !== "mechanic"
+    ) {
+      throw new ManagementError(
+        "unauthorized",
+        "Managers may deactivate only driver or mechanic accounts.",
+      );
+    }
     if (user.id === actorUserId) {
       throw new ManagementError(
         "self_deactivation",
@@ -687,6 +880,14 @@ export const fleetDataService = {
     user.status = "Inactive";
     if (driver) driver.status = "Inactive";
     if (mechanic) mechanic.status = "Inactive";
+    logActivity(
+      data,
+      actorUserId,
+      "Deactivated user",
+      "user",
+      user.id,
+      `${user.fullName} (${user.role})`,
+    );
     writeData(data);
     return user;
   },
@@ -708,9 +909,10 @@ export const fleetDataService = {
     return this.deactivateUser(profile.userId, actorUserId);
   },
 
-  async createVehicle(input: VehicleInput) {
+  async createVehicle(input: VehicleInput, actorUserId: string) {
     await delay();
     const data = readData();
+    requireManagementRole(data, actorUserId, ["admin", "manager"]);
     validateVehicle(input, data);
     const vehicle: Vehicle = {
       ...input,
@@ -724,13 +926,26 @@ export const fleetDataService = {
       vin: input.vin.trim().toUpperCase(),
     };
     data.vehicles.push(vehicle);
+    logActivity(
+      data,
+      actorUserId,
+      "Created vehicle",
+      "vehicle",
+      vehicle.id,
+      `${vehicle.fleetNumber} (${vehicle.plateNumber})`,
+    );
     writeData(data);
     return vehicle;
   },
 
-  async updateVehicle(vehicleId: string, input: VehicleInput) {
+  async updateVehicle(
+    vehicleId: string,
+    input: VehicleInput,
+    actorUserId: string,
+  ) {
     await delay();
     const data = readData();
+    requireManagementRole(data, actorUserId, ["admin", "manager"]);
     const vehicle = data.vehicles.find((item) => item.id === vehicleId);
     if (!vehicle) throw new ManagementError("not_found", "Vehicle not found.");
     validateVehicle(input, data, vehicleId);
@@ -746,6 +961,7 @@ export const fleetDataService = {
     ) {
       ensureVehicleCanBeDeactivated(data, vehicleId);
     }
+    const previousStatus = vehicle.status;
     Object.assign(vehicle, {
       ...input,
       fleetNumber: input.fleetNumber.trim().toUpperCase(),
@@ -755,17 +971,35 @@ export const fleetDataService = {
       type: input.type.trim(),
       vin: input.vin.trim().toUpperCase(),
     });
+    notifyVehicleStatusChange(data, vehicle, previousStatus);
+    logActivity(
+      data,
+      actorUserId,
+      "Updated vehicle",
+      "vehicle",
+      vehicle.id,
+      `${vehicle.fleetNumber} (${vehicle.status})`,
+    );
     writeData(data);
     return vehicle;
   },
 
-  async deactivateVehicle(vehicleId: string) {
+  async deactivateVehicle(vehicleId: string, actorUserId: string) {
     await delay();
     const data = readData();
+    requireManagementRole(data, actorUserId, ["admin", "manager"]);
     const vehicle = data.vehicles.find((item) => item.id === vehicleId);
     if (!vehicle) throw new ManagementError("not_found", "Vehicle not found.");
     ensureVehicleCanBeDeactivated(data, vehicleId);
     vehicle.status = "Out of Service";
+    logActivity(
+      data,
+      actorUserId,
+      "Deactivated vehicle",
+      "vehicle",
+      vehicle.id,
+      vehicle.fleetNumber,
+    );
     writeData(data);
     return vehicle;
   },
@@ -887,13 +1121,21 @@ export const fleetDataService = {
     const driver = getDriverProfile(data, assignment.driverId);
     if (driver.status !== "Inactive") driver.status = "Available";
     const vehicle = getVehicle(data, assignment.vehicleId);
+    const driverUser = getUser(data, driver.userId);
+    addNotification(data, {
+      message: `Your assignment to ${vehicle.fleetNumber} (${vehicle.plateNumber}) ended on ${endDate}.`,
+      relatedRoute: "/driver/dashboard",
+      title: "Vehicle assignment ended",
+      type: "Assignment",
+      userId: driverUser.id,
+    });
     logActivity(
       data,
       actorUserId,
       "Ended vehicle assignment",
       "assignment",
       assignment.id,
-      vehicle.fleetNumber,
+      `Ended ${vehicle.fleetNumber} assignment for ${driverUser.fullName} on ${endDate}`,
     );
     writeData(data);
     return assignment;
@@ -993,13 +1235,15 @@ export const fleetDataService = {
     }
     if (schedule.status === "Cancelled") return schedule;
     schedule.status = "Cancelled";
+    const vehicle = getVehicle(data, schedule.vehicleId);
+    const serviceType = getServiceType(data, schedule.serviceTypeId);
     logActivity(
       data,
       actorUserId,
       "Cancelled maintenance schedule",
       "maintenance_schedule",
       schedule.id,
-      schedule.id,
+      `Cancelled ${serviceType.name} plan for ${vehicle.fleetNumber}`,
     );
     writeData(data);
     return schedule;
@@ -1073,6 +1317,7 @@ export const fleetDataService = {
     }
     if (assignedMechanicId) {
       const mechanic = getMechanicProfile(data, assignedMechanicId);
+      const mechanicUser = getUser(data, mechanic.userId);
       addNotification(data, {
         message: `${serviceType.name} for ${vehicle.fleetNumber} is assigned to you for ${input.scheduledDate}.`,
         relatedRoute: "/maintenance/work-orders",
@@ -1080,6 +1325,14 @@ export const fleetDataService = {
         type: "Maintenance",
         userId: mechanic.userId,
       });
+      logActivity(
+        data,
+        actorUserId,
+        "Assigned maintenance work order",
+        "maintenance_work_order",
+        workOrder.id,
+        `${vehicle.fleetNumber} ${serviceType.name} assigned to ${mechanicUser.fullName}`,
+      );
     }
     logActivity(
       data,
@@ -1111,6 +1364,7 @@ export const fleetDataService = {
       );
     }
     const mechanic = getMechanicProfile(data, assignedMechanicId);
+    const mechanicUser = getUser(data, mechanic.userId);
     workOrder.assignedMechanicId = mechanic.id;
     workOrder.status = "assigned";
     const assignedVehicle = getVehicle(data, workOrder.vehicleId);
@@ -1128,7 +1382,7 @@ export const fleetDataService = {
       "Assigned maintenance work order",
       "maintenance_work_order",
       workOrder.id,
-      workOrder.id,
+      `${assignedVehicle.fleetNumber} ${assignedService.name} assigned to ${mechanicUser.fullName}`,
     );
     writeData(data);
     return workOrder;
@@ -1238,6 +1492,7 @@ export const fleetDataService = {
     }
     workOrder.status = input.status;
     const vehicle = getVehicle(data, workOrder.vehicleId);
+    const previousVehicleStatus = vehicle.status;
     const serviceType = getServiceType(data, workOrder.serviceTypeId);
     if (
       input.status === "completed" &&
@@ -1366,13 +1621,22 @@ export const fleetDataService = {
         });
       });
     }
+    notifyVehicleStatusChange(data, vehicle, previousVehicleStatus);
+    const transitionAction =
+      input.status === "in_progress"
+        ? "Started maintenance work"
+        : input.status === "completed"
+          ? "Completed maintenance work"
+          : input.status === "cancelled"
+            ? "Cancelled maintenance work"
+            : "Updated maintenance work order";
     logActivity(
       data,
       input.actorUserId,
-      `Updated work order to ${input.status.replace("_", " ")}`,
+      transitionAction,
       "maintenance_work_order",
       workOrder.id,
-      workOrder.id,
+      `${vehicle.fleetNumber} ${serviceType.name} changed to ${input.status.replace("_", " ")}`,
     );
     writeData(data);
     return workOrder;
@@ -1408,13 +1672,15 @@ export const fleetDataService = {
       );
     }
     workOrder.serviceNotes = serviceNotes.trim();
+    const vehicle = getVehicle(data, workOrder.vehicleId);
+    const serviceType = getServiceType(data, workOrder.serviceTypeId);
     logActivity(
       data,
       actorUserId,
       "Updated work-order service notes",
       "maintenance_work_order",
       workOrder.id,
-      workOrder.id,
+      `Updated service notes for ${vehicle.fleetNumber} ${serviceType.name}`,
     );
     writeData(data);
     return workOrder;
@@ -1671,13 +1937,18 @@ export const fleetDataService = {
         (item) => item.id === threshold.serviceTypeId,
       );
       if (!serviceType || threshold.nextServiceMileage === null) return;
+      const nextServiceMileage = threshold.nextServiceMileage;
       const statusLabel = threshold.status.replaceAll("_", " ");
-      addNotification(data, {
-        message: `${vehicle.fleetNumber} is ${statusLabel} for ${serviceType.name}. The next service mileage is ${threshold.nextServiceMileage.toLocaleString()} km.`,
-        relatedRoute: "/driver/mileage",
-        title: `${serviceType.name}: ${statusLabel}`,
-        type: "Reminder",
-        userId: actorUserId,
+      getVehicleNotificationRecipients(data, vehicle.id).forEach((userId) => {
+        const recipient = getUser(data, userId);
+        addNotificationOnce(data, {
+          message: `${vehicle.fleetNumber} is ${statusLabel} for ${serviceType.name}. The next service mileage is ${nextServiceMileage.toLocaleString()} km.`,
+          relatedRoute:
+            recipient.role === "driver" ? "/driver/mileage" : "/reports",
+          title: `${serviceType.name}: ${statusLabel}`,
+          type: "Reminder",
+          userId,
+        });
       });
     });
     logActivity(
@@ -1690,6 +1961,23 @@ export const fleetDataService = {
     );
     writeData(data);
     return submission;
+  },
+
+  recordAuthenticationEvent(
+    actorUserId: string,
+    action: "Signed in" | "Signed out",
+  ) {
+    const data = readData();
+    const actor = getUser(data, actorUserId);
+    logActivity(
+      data,
+      actorUserId,
+      action,
+      "user",
+      actor.id,
+      `${actor.fullName} ${action.toLowerCase()} to the frontend demonstration.`,
+    );
+    writeData(data);
   },
 
   async markNotificationRead(notificationId: string, actorUserId: string) {
@@ -1754,6 +2042,7 @@ export const fleetDataService = {
 
   resetForTests() {
     window.localStorage.removeItem(STORAGE_KEY);
+    window.localStorage.removeItem(PREVIOUS_STORAGE_KEY);
     window.localStorage.removeItem(LEGACY_STORAGE_KEY);
     window.localStorage.removeItem(OLDER_STORAGE_KEY);
   },

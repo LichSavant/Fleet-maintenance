@@ -10,6 +10,12 @@ function byNewest<T>(items: readonly T[], getDate: (item: T) => string) {
 }
 
 export const sharedViewService = {
+  getUnreadNotificationCount(
+    notifications: readonly { readAt: string | null }[],
+  ) {
+    return notifications.filter((notification) => !notification.readAt).length;
+  },
+
   getNotifications(data: FleetState, user: AuthUser) {
     return byNewest(
       data.notifications.filter(

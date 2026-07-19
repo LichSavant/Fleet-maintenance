@@ -52,15 +52,33 @@ export function AuthProvider({ children }: AuthProviderProps) {
       email: fleetUser.email,
       fullName: fleetUser.fullName,
     });
+    try {
+      fleetDataService.recordAuthenticationEvent(
+        nextSession.user.id,
+        "Signed in",
+      );
+    } catch (error) {
+      authService.signOut();
+      throw error;
+    }
     setSession(nextSession);
     setRememberedEmail(credentials.rememberEmail ? nextSession.user.email : "");
     return nextSession;
   }, []);
 
   const signOut = useCallback(() => {
-    authService.signOut();
-    setSession(null);
-  }, []);
+    try {
+      if (session) {
+        fleetDataService.recordAuthenticationEvent(
+          session.user.id,
+          "Signed out",
+        );
+      }
+    } finally {
+      authService.signOut();
+      setSession(null);
+    }
+  }, [session]);
 
   const signUp = useCallback(async (input: RegistrationInput) => {
     const user = await authService.register(input);
