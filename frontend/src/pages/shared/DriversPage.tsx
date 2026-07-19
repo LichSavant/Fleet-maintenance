@@ -53,6 +53,7 @@ export default function DriversPage() {
           (!query ||
             record.user.fullName.toLowerCase().includes(query) ||
             record.user.email.toLowerCase().includes(query) ||
+            record.profile.employeeNumber.toLowerCase().includes(query) ||
             record.profile.licenseNumber.toLowerCase().includes(query) ||
             record.assignedVehicle?.plateNumber
               .toLowerCase()
@@ -84,6 +85,11 @@ export default function DriversPage() {
           <span>{record.user.email}</span>
         </div>
       ),
+    },
+    {
+      header: "Employee number",
+      key: "employee-number",
+      render: (record) => record.profile.employeeNumber,
     },
     {
       header: "License",
@@ -138,6 +144,7 @@ export default function DriversPage() {
   const initialValues: AccountFormValues | null = editing
     ? {
         email: editing.user.email,
+        employeeNumber: editing.profile.employeeNumber,
         fullName: editing.user.fullName,
         id: editing.user.id,
         licenseNumber: editing.profile.licenseNumber,
@@ -152,6 +159,7 @@ export default function DriversPage() {
     } else {
       await fleetDataService.createDriver({
         email: values.email,
+        employeeNumber: values.employeeNumber,
         fullName: values.fullName,
         licenseNumber: values.licenseNumber ?? "",
       });
@@ -201,7 +209,7 @@ export default function DriversPage() {
               id="driver-search"
               label="Search drivers"
               onChange={setSearch}
-              placeholder="Search driver, license, or vehicle"
+              placeholder="Search driver, employee, license, or vehicle"
               value={search}
             />
             <label className="toolbar-field">
@@ -290,6 +298,10 @@ export default function DriversPage() {
                 { label: "Driver", value: viewing.user.fullName },
                 { label: "Email", value: viewing.user.email },
                 { label: "License", value: viewing.profile.licenseNumber },
+                {
+                  label: "Employee number",
+                  value: viewing.profile.employeeNumber,
+                },
                 {
                   label: "Assigned vehicle",
                   value: viewing.assignedVehicle

@@ -3,8 +3,13 @@ import type { UserRole } from "./auth";
 export type RecordStatus = "Active" | "Inactive";
 export type UserStatus = RecordStatus;
 export type DriverStatus = "Assigned" | "Available" | "Inactive";
-export type VehicleStatus =
-  "Active" | "Maintenance" | "Inspection" | "Out of Service";
+export const VEHICLE_STATUSES = [
+  "Active",
+  "Maintenance",
+  "Inspection",
+  "Out of Service",
+] as const;
+export type VehicleStatus = (typeof VEHICLE_STATUSES)[number];
 export type AssignmentStatus = "Active" | "Ended";
 export type WorkOrderStatus =
   "scheduled" | "assigned" | "in_progress" | "completed" | "cancelled";

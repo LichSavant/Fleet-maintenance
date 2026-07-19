@@ -11,6 +11,7 @@ import type {
   VehicleAssignment,
   WorkOrderStatus,
 } from "../types/fleet";
+import { VEHICLE_STATUSES } from "../types/fleet";
 import {
   ManagementError,
   type DriverAccountInput,
@@ -33,7 +34,7 @@ import {
   type MileageSubmissionInput,
   type ProfileUpdateInput,
 } from "../types/shared";
-import { isRequired, isValidEmail } from "../utils/validation";
+import { isRequired, isValidEmail, isValidIsoDate } from "../utils/validation";
 import {
   createStoredFleetState,
   FLEET_STATE_VERSION,
@@ -182,6 +183,29 @@ function ensureUniqueLicense(
   }
 }
 
+function ensureUniqueEmployeeNumber(
+  data: MutableFleetData,
+  employeeNumber: string,
+  excludedProfileId?: string,
+) {
+  if (!isRequired(employeeNumber)) {
+    throw new ManagementError("invalid_record", "Enter an employee number.");
+  }
+  const profiles = [...data.driverProfiles, ...data.mechanicProfiles];
+  if (
+    profiles.some(
+      (profile) =>
+        profile.id !== excludedProfileId &&
+        normalize(profile.employeeNumber) === normalize(employeeNumber),
+    )
+  ) {
+    throw new ManagementError(
+      "duplicate_employee_number",
+      "A driver or mechanic with that employee number already exists.",
+    );
+  }
+}
+
 function addRoleProfile(
   data: MutableFleetData,
   user: User,
@@ -189,10 +213,11 @@ function addRoleProfile(
 ) {
   if (user.role === "driver") {
     ensureUniqueLicense(data, input.licenseNumber ?? "");
+    const employeeNumber =
+      input.employeeNumber?.trim() || `DRV-${user.id.slice(-8).toUpperCase()}`;
+    ensureUniqueEmployeeNumber(data, employeeNumber);
     data.driverProfiles.push({
-      employeeNumber:
-        input.employeeNumber?.trim() ??
-        `DRV-${user.id.slice(-8).toUpperCase()}`,
+      employeeNumber,
       id: createId("driver-profile"),
       licenseNumber: input.licenseNumber?.trim() ?? "",
       phone: input.phone?.trim() ?? "",
@@ -206,10 +231,11 @@ function addRoleProfile(
         "Enter a mechanic specialization.",
       );
     }
+    const employeeNumber =
+      input.employeeNumber?.trim() || `MEC-${user.id.slice(-8).toUpperCase()}`;
+    ensureUniqueEmployeeNumber(data, employeeNumber);
     data.mechanicProfiles.push({
-      employeeNumber:
-        input.employeeNumber?.trim() ??
-        `MEC-${user.id.slice(-8).toUpperCase()}`,
+      employeeNumber,
       id: createId("mechanic-profile"),
       phone: input.phone?.trim() ?? "",
       specialization: input.specialization?.trim() ?? "",
@@ -246,10 +272,12 @@ function validateVehicle(
     !isRequired(input.make) ||
     !isRequired(input.model) ||
     !isRequired(input.type) ||
+    !Number.isInteger(input.year) ||
     input.year < 1980 ||
     input.year > new Date().getFullYear() + 1 ||
     !Number.isFinite(input.currentMileage) ||
-    input.currentMileage < 0
+    input.currentMileage < 0 ||
+    !VEHICLE_STATUSES.includes(input.status)
   ) {
     throw new ManagementError(
       "invalid_record",
@@ -288,7 +316,7 @@ function validateVehicle(
     )
   ) {
     throw new ManagementError(
-      "duplicate_plate",
+      "duplicate_vin",
       "That vehicle identification number is already in use.",
     );
   }
@@ -326,10 +354,6 @@ function ensureVehicleCanBeDeactivated(
 
 function today() {
   return new Date().toISOString().slice(0, 10);
-}
-
-function isValidDate(value: string) {
-  return /^\d{4}-\d{2}-\d{2}$/.test(value) && !Number.isNaN(Date.parse(value));
 }
 
 function requireOperationsRole(
@@ -568,8 +592,12 @@ export const fleetDataService = {
     const driver = data.driverProfiles.find((item) => item.userId === userId);
     if (driver) {
       ensureUniqueLicense(data, input.licenseNumber ?? "", driver.id);
-      driver.employeeNumber =
-        input.employeeNumber?.trim() ?? driver.employeeNumber;
+      const employeeNumber =
+        input.employeeNumber === undefined
+          ? driver.employeeNumber
+          : input.employeeNumber.trim();
+      ensureUniqueEmployeeNumber(data, employeeNumber, driver.id);
+      driver.employeeNumber = employeeNumber;
       driver.licenseNumber = input.licenseNumber?.trim() ?? "";
       driver.phone = input.phone?.trim() ?? driver.phone;
     }
@@ -583,8 +611,12 @@ export const fleetDataService = {
           "Enter a mechanic specialization.",
         );
       }
-      mechanic.employeeNumber =
-        input.employeeNumber?.trim() ?? mechanic.employeeNumber;
+      const employeeNumber =
+        input.employeeNumber === undefined
+          ? mechanic.employeeNumber
+          : input.employeeNumber.trim();
+      ensureUniqueEmployeeNumber(data, employeeNumber, mechanic.id);
+      mechanic.employeeNumber = employeeNumber;
       mechanic.phone = input.phone?.trim() ?? mechanic.phone;
       mechanic.specialization = input.specialization?.trim() ?? "";
     }
@@ -635,16 +667,21 @@ export const fleetDataService = {
     );
     if (
       mechanic &&
-      data.maintenanceWorkOrders.some(
+      (data.maintenanceWorkOrders.some(
         (record) =>
           record.assignedMechanicId === mechanic.id &&
           record.status !== "completed" &&
           record.status !== "cancelled",
-      )
+      ) ||
+        data.maintenanceSchedules.some(
+          (schedule) =>
+            schedule.assignedMechanicId === mechanic.id &&
+            schedule.status === "Planned",
+        ))
     ) {
       throw new ManagementError(
         "linked_record",
-        "Reassign or complete the mechanic's open maintenance work before deactivation.",
+        "Reassign, cancel, or complete the mechanic's planned and open maintenance work before deactivation.",
       );
     }
     user.status = "Inactive";
@@ -737,7 +774,7 @@ export const fleetDataService = {
     await delay();
     const data = readData();
     requireOperationsRole(data, actorUserId, ["admin", "manager"]);
-    if (!isValidDate(input.startDate) || input.startDate > today()) {
+    if (!isValidIsoDate(input.startDate) || input.startDate > today()) {
       throw new OperationsError(
         "invalid_date",
         "Choose a valid assignment start date that is not in the future.",
@@ -746,30 +783,43 @@ export const fleetDataService = {
 
     const driver = getDriverProfile(data, input.driverId);
     const driverUser = getUser(data, driver.userId);
-    if (driver.status !== "Available" || driverUser.status !== "Active") {
-      throw new OperationsError(
-        "ineligible_driver",
-        "Only an active, available driver can receive an assignment.",
-      );
-    }
     const vehicle = getVehicle(data, input.vehicleId);
-    if (vehicle.status !== "Active") {
+    if (
+      data.assignments.some(
+        (assignment) =>
+          assignment.status === "Active" && assignment.driverId === driver.id,
+      )
+    ) {
       throw new OperationsError(
-        "unavailable_vehicle",
-        "Only an active, available vehicle can be assigned.",
+        "assignment_conflict",
+        "The selected driver already has an active vehicle assignment.",
       );
     }
     if (
       data.assignments.some(
         (assignment) =>
-          assignment.status === "Active" &&
-          (assignment.driverId === driver.id ||
-            assignment.vehicleId === vehicle.id),
+          assignment.status === "Active" && assignment.vehicleId === vehicle.id,
       )
     ) {
       throw new OperationsError(
         "assignment_conflict",
-        "The selected driver or vehicle already has an active assignment.",
+        "The selected vehicle already has an active driver assignment.",
+      );
+    }
+    if (
+      driver.status !== "Available" ||
+      driverUser.status !== "Active" ||
+      driverUser.role !== "driver"
+    ) {
+      throw new OperationsError(
+        "ineligible_driver",
+        "Only an active, available driver can receive an assignment.",
+      );
+    }
+    if (vehicle.status !== "Active") {
+      throw new OperationsError(
+        "unavailable_vehicle",
+        "Only an active vehicle outside maintenance or inspection can be assigned.",
       );
     }
 
@@ -823,7 +873,7 @@ export const fleetDataService = {
       );
     }
     if (
-      !isValidDate(endDate) ||
+      !isValidIsoDate(endDate) ||
       endDate < assignment.startDate ||
       endDate > today()
     ) {
@@ -856,7 +906,7 @@ export const fleetDataService = {
     await delay();
     const data = readData();
     requireOperationsRole(data, actorUserId, ["admin", "manager"]);
-    if (!isValidDate(input.dueDate)) {
+    if (!isValidIsoDate(input.dueDate)) {
       throw new OperationsError(
         "invalid_date",
         "Choose a valid maintenance date.",
@@ -959,7 +1009,7 @@ export const fleetDataService = {
     await delay();
     const data = readData();
     requireOperationsRole(data, actorUserId, ["admin", "manager"]);
-    if (!isValidDate(input.scheduledDate)) {
+    if (!isValidIsoDate(input.scheduledDate)) {
       throw new OperationsError(
         "invalid_date",
         "Choose a valid work-order date.",
@@ -1385,7 +1435,7 @@ export const fleetDataService = {
       throw new OperationsError("not_found", "Maintenance history not found.");
     }
     if (
-      !isValidDate(input.serviceDate) ||
+      !isValidIsoDate(input.serviceDate) ||
       input.serviceDate > today() ||
       !Number.isInteger(input.odometerAtService) ||
       input.odometerAtService < 0 ||
@@ -1545,7 +1595,7 @@ export const fleetDataService = {
       );
     }
     if (
-      !isValidDate(input.submissionDate) ||
+      !isValidIsoDate(input.submissionDate) ||
       input.submissionDate > today() ||
       input.submissionDate < assignment.startDate
     ) {

@@ -56,8 +56,19 @@ describe("AppRoutes", () => {
     });
     const data = structuredClone(fleetDataService.getSnapshot());
     const driver = data.users.find((user) => user.id === "demo-user-driver");
-    if (!driver) throw new Error("Driver fixture is missing.");
+    const profile = data.driverProfiles.find(
+      (item) => item.userId === "demo-user-driver",
+    );
+    const assignment = data.assignments.find(
+      (item) => item.driverId === profile?.id && item.status === "Active",
+    );
+    if (!driver || !profile || !assignment) {
+      throw new Error("Driver relationship fixture is missing.");
+    }
     driver.status = "Inactive";
+    profile.status = "Inactive";
+    assignment.status = "Ended";
+    assignment.endDate = "2026-07-19";
     window.localStorage.setItem(
       FLEET_DATA_STORAGE_KEY,
       JSON.stringify({ data, version: FLEET_STORAGE_KEYS.version }),

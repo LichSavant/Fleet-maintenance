@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 
 import { operationsViewService } from "./operationsViewService";
+import { dashboardService } from "./dashboardService";
 import { fleetDataService } from "./fleetDataService";
 import { mileageService } from "./mileageService";
 
@@ -58,7 +59,74 @@ describe("fleet operational workflows", () => {
         },
         "demo-user-manager",
       ),
+    ).rejects.toMatchObject({ code: "assignment_conflict" });
+  });
+
+  it("rejects inactive drivers and vehicles under maintenance", async () => {
+    const user = await fleetDataService.createDriver({
+      email: "inactive.assignment.driver@forgefleet.demo",
+      employeeNumber: "DRV-9010",
+      fullName: "Inactive Assignment Driver",
+      licenseNumber: "N10-26-000111",
+    });
+    const profile = fleetDataService
+      .getSnapshot()
+      .driverProfiles.find((item) => item.userId === user.id);
+    await fleetDataService.deactivateDriver(
+      profile?.id ?? "",
+      "demo-user-admin",
+    );
+
+    await expect(
+      fleetDataService.createAssignment(
+        {
+          driverId: profile?.id ?? "",
+          startDate: "2026-07-19",
+          vehicleId: "vehicle-nova-7710",
+        },
+        "demo-user-manager",
+      ),
     ).rejects.toMatchObject({ code: "ineligible_driver" });
+    await expect(
+      fleetDataService.createAssignment(
+        {
+          driverId: "driver-profile-maya",
+          startDate: "2026-07-19",
+          vehicleId: "vehicle-vanta-1182",
+        },
+        "demo-user-manager",
+      ),
+    ).rejects.toMatchObject({ code: "unavailable_vehicle" });
+  });
+
+  it("rejects inactive mechanics for new work assignments", async () => {
+    const user = await fleetDataService.createMechanic({
+      email: "inactive.assignment.mechanic@forgefleet.demo",
+      employeeNumber: "MEC-9010",
+      fullName: "Inactive Assignment Mechanic",
+      specialization: "Hydraulics",
+    });
+    const profile = fleetDataService
+      .getSnapshot()
+      .mechanicProfiles.find((item) => item.userId === user.id);
+    await fleetDataService.deactivateMechanic(
+      profile?.id ?? "",
+      "demo-user-admin",
+    );
+
+    await expect(
+      fleetDataService.createWorkOrder(
+        {
+          assignedMechanicId: profile?.id,
+          notes: "Attempt assignment to inactive mechanic.",
+          priority: "Medium",
+          scheduledDate: "2026-07-19",
+          serviceTypeId: "service-type-brakes",
+          vehicleId: "vehicle-nova-7710",
+        },
+        "demo-user-manager",
+      ),
+    ).rejects.toMatchObject({ code: "invalid_record" });
   });
 
   it("ends an assignment while retaining history and restoring availability", async () => {
@@ -79,6 +147,62 @@ describe("fleet operational workflows", () => {
     expect(operationsViewService.getAssignments(data)).toHaveLength(
       data.assignments.length,
     );
+    expect(
+      dashboardService.getDriverDashboard({
+        email: "driver@forgefleet.demo",
+        fullName: "Carlo Reyes",
+        id: "demo-user-driver",
+        role: "driver",
+      }),
+    ).toMatchObject({
+      activeAssignment: undefined,
+      assignedVehicle: undefined,
+    });
+  });
+
+  it("immediately resolves a new assignment on the signed-in driver dashboard", async () => {
+    const assignment = await fleetDataService.createAssignment(
+      {
+        driverId: "driver-profile-maya",
+        startDate: "2026-07-19",
+        vehicleId: "vehicle-nova-7710",
+      },
+      "demo-user-manager",
+    );
+    const dashboard = dashboardService.getDriverDashboard({
+      email: "maya@forgefleet.demo",
+      fullName: "Maya Torres",
+      id: "fleet-user-driver-maya",
+      role: "driver",
+    });
+
+    expect(dashboard.activeAssignment?.id).toBe(assignment.id);
+    expect(dashboard.assignedVehicle?.id).toBe("vehicle-nova-7710");
+    expect(
+      dashboard.recentSubmissions.every(
+        (record) => record.driverId === "driver-profile-maya",
+      ),
+    ).toBe(true);
+  });
+
+  it("rejects impossible assignment dates", async () => {
+    await expect(
+      fleetDataService.createAssignment(
+        {
+          driverId: "driver-profile-maya",
+          startDate: "2026-02-30",
+          vehicleId: "vehicle-nova-7710",
+        },
+        "demo-user-manager",
+      ),
+    ).rejects.toMatchObject({ code: "invalid_date" });
+    await expect(
+      fleetDataService.endAssignment(
+        "assignment-axiom-carlo",
+        "2025-12-31",
+        "demo-user-manager",
+      ),
+    ).rejects.toMatchObject({ code: "invalid_date" });
   });
 
   it("creates a schedule and converts it to one linked work order", async () => {

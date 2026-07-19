@@ -51,6 +51,7 @@ export default function MechanicsPage() {
           (!query ||
             record.user.fullName.toLowerCase().includes(query) ||
             record.user.email.toLowerCase().includes(query) ||
+            record.profile.employeeNumber.toLowerCase().includes(query) ||
             record.profile.specialization.toLowerCase().includes(query)) &&
           (status === "all" || record.user.status === status) &&
           (work === "all" ||
@@ -75,6 +76,11 @@ export default function MechanicsPage() {
           <span>{record.user.email}</span>
         </div>
       ),
+    },
+    {
+      header: "Employee number",
+      key: "employee-number",
+      render: (record) => record.profile.employeeNumber,
     },
     {
       header: "Specialty",
@@ -123,6 +129,7 @@ export default function MechanicsPage() {
   const initialValues: AccountFormValues | null = editing
     ? {
         email: editing.user.email,
+        employeeNumber: editing.profile.employeeNumber,
         fullName: editing.user.fullName,
         id: editing.user.id,
         role: "mechanic",
@@ -137,6 +144,7 @@ export default function MechanicsPage() {
     } else {
       await fleetDataService.createMechanic({
         email: values.email,
+        employeeNumber: values.employeeNumber,
         fullName: values.fullName,
         specialization: values.specialization ?? "",
       });
@@ -189,7 +197,7 @@ export default function MechanicsPage() {
               id="mechanic-search"
               label="Search mechanics"
               onChange={setSearch}
-              placeholder="Search mechanic or specialization"
+              placeholder="Search mechanic, employee, or specialization"
               value={search}
             />
             <label className="toolbar-field">
@@ -276,6 +284,10 @@ export default function MechanicsPage() {
                 { label: "Mechanic", value: viewing.user.fullName },
                 { label: "Email", value: viewing.user.email },
                 {
+                  label: "Employee number",
+                  value: viewing.profile.employeeNumber,
+                },
+                {
                   label: "Specialty",
                   value: viewing.profile.specialization,
                 },
@@ -291,7 +303,7 @@ export default function MechanicsPage() {
       />
       <ConfirmDialog
         confirmLabel="Deactivate mechanic"
-        description="Open maintenance work prevents deactivation. Completed service history remains linked to this account."
+        description="Planned or open maintenance work prevents deactivation. Completed service history remains linked to this account."
         isConfirming={isDeactivating}
         isOpen={Boolean(deactivating)}
         onCancel={() => setDeactivating(null)}

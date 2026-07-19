@@ -64,6 +64,26 @@ describe("fleetDataService", () => {
     });
   });
 
+  it("rejects duplicate employee numbers across driver and mechanic profiles", async () => {
+    await expect(
+      fleetDataService.createDriver({
+        email: "duplicate.employee.driver@forgefleet.demo",
+        employeeNumber: "MEC-2001",
+        fullName: "Duplicate Employee Driver",
+        licenseNumber: "NEW-EMPLOYEE-LICENSE",
+      }),
+    ).rejects.toMatchObject({ code: "duplicate_employee_number" });
+
+    await expect(
+      fleetDataService.createMechanic({
+        email: "duplicate.employee.mechanic@forgefleet.demo",
+        employeeNumber: "DRV-1001",
+        fullName: "Duplicate Employee Mechanic",
+        specialization: "Suspension",
+      }),
+    ).rejects.toMatchObject({ code: "duplicate_employee_number" });
+  });
+
   it("updates user and profile fields without changing the relationship", async () => {
     const before = fleetDataService.getSnapshot();
     const profile = before.driverProfiles.find(
@@ -140,6 +160,32 @@ describe("fleetDataService", () => {
     ).toBe("Inactive");
   });
 
+  it("blocks mechanic deactivation while planned work is assigned", async () => {
+    const user = await fleetDataService.createMechanic({
+      email: "planned.mechanic@forgefleet.demo",
+      employeeNumber: "MEC-9020",
+      fullName: "Planned Work Mechanic",
+      specialization: "Preventive maintenance",
+    });
+    const profile = fleetDataService
+      .getSnapshot()
+      .mechanicProfiles.find((item) => item.userId === user.id);
+    await fleetDataService.createMaintenanceSchedule(
+      {
+        assignedMechanicId: profile?.id,
+        dueDate: "2026-08-01",
+        notes: "Planned relationship protection test.",
+        serviceTypeId: "service-type-brakes",
+        vehicleId: "vehicle-nova-7710",
+      },
+      "demo-user-manager",
+    );
+
+    await expect(
+      fleetDataService.deactivateMechanic(profile?.id ?? "", "demo-user-admin"),
+    ).rejects.toMatchObject({ code: "linked_record" });
+  });
+
   it("validates vehicle uniqueness and relationship protections", async () => {
     await expect(
       fleetDataService.createVehicle({
@@ -198,6 +244,124 @@ describe("fleetDataService", () => {
         .getSnapshot()
         .vehicles.find((item) => item.id === vehicle.id)?.status,
     ).toBe("Out of Service");
+  });
+
+  it("rejects duplicate vehicle plates and VINs independently", async () => {
+    await expect(
+      fleetDataService.createVehicle({
+        currentMileage: 100,
+        fleetNumber: "FLT-PLATE-TEST",
+        make: "Forge Motors",
+        model: "Plate Test",
+        plateNumber: "ff 2048",
+        status: "Active",
+        type: "Service Van",
+        vin: "UNIQUEVINPLATE0001",
+        year: 2026,
+      }),
+    ).rejects.toMatchObject({ code: "duplicate_plate" });
+
+    await expect(
+      fleetDataService.createVehicle({
+        currentMileage: 100,
+        fleetNumber: "FLT-VIN-TEST",
+        make: "Forge Motors",
+        model: "VIN Test",
+        plateNumber: "UNIQUE PLATE",
+        status: "Active",
+        type: "Service Van",
+        vin: "1ffaxiom204800001",
+        year: 2026,
+      }),
+    ).rejects.toMatchObject({ code: "duplicate_vin" });
+  });
+
+  it("rejects invalid vehicle year, mileage, and runtime status values", async () => {
+    const validVehicle = {
+      currentMileage: 100,
+      fleetNumber: "FLT-VALIDATION",
+      make: "Forge Motors",
+      model: "Validation Runner",
+      plateNumber: "VALID 100",
+      status: "Active" as const,
+      type: "Service Van",
+      vin: "VALIDATIONVIN00001",
+      year: 2026,
+    };
+
+    await expect(
+      fleetDataService.createVehicle({ ...validVehicle, year: Number.NaN }),
+    ).rejects.toMatchObject({ code: "invalid_record" });
+    await expect(
+      fleetDataService.createVehicle({
+        ...validVehicle,
+        currentMileage: -1,
+      }),
+    ).rejects.toMatchObject({ code: "invalid_record" });
+    await expect(
+      fleetDataService.createVehicle({
+        ...validVehicle,
+        status: "Retired" as typeof validVehicle.status,
+      }),
+    ).rejects.toMatchObject({ code: "invalid_record" });
+  });
+
+  it("archives historically referenced records without deleting relationships", async () => {
+    await fleetDataService.endAssignment(
+      "assignment-forge-liza",
+      "2026-07-19",
+      "demo-user-manager",
+    );
+    await fleetDataService.deactivateVehicle("vehicle-forge-0631");
+    await fleetDataService.deactivateDriver(
+      "driver-profile-liza",
+      "demo-user-admin",
+    );
+    await fleetDataService.transitionWorkOrder("maintenance-nova-safety", {
+      actorUserId: "demo-user-admin",
+      status: "cancelled",
+    });
+    await fleetDataService.cancelMaintenanceSchedule(
+      "schedule-forge-safety",
+      "demo-user-admin",
+    );
+    await fleetDataService.cancelMaintenanceSchedule(
+      "schedule-nova-calibration",
+      "demo-user-admin",
+    );
+    await fleetDataService.deactivateMechanic(
+      "mechanic-profile-ana",
+      "demo-user-admin",
+    );
+    const data = fleetDataService.getSnapshot();
+
+    expect(
+      data.vehicles.find((vehicle) => vehicle.id === "vehicle-forge-0631")
+        ?.status,
+    ).toBe("Out of Service");
+    expect(
+      data.driverProfiles.find(
+        (profile) => profile.id === "driver-profile-liza",
+      )?.status,
+    ).toBe("Inactive");
+    expect(
+      data.mechanicProfiles.find(
+        (profile) => profile.id === "mechanic-profile-ana",
+      )?.status,
+    ).toBe("Inactive");
+    expect(
+      data.assignments.some(
+        (assignment) => assignment.id === "assignment-forge-liza",
+      ),
+    ).toBe(true);
+    expect(
+      data.maintenanceHistory.find(
+        (record) => record.id === "history-forge-electrical",
+      ),
+    ).toMatchObject({
+      mechanicId: "mechanic-profile-ana",
+      vehicleId: "vehicle-forge-0631",
+    });
   });
 
   it("migrates valid v2 browser data into the canonical v4 state", () => {
@@ -359,6 +523,37 @@ describe("fleetDataService", () => {
     const recovered = fleetDataService.getSnapshot();
 
     expect(recovered.assignments[0].driverId).toBe("driver-profile-carlo");
+    expect(window.localStorage.getItem(FLEET_STORAGE_KEYS.current)).toBeNull();
+  });
+
+  it("fails closed when stored data contains conflicting active assignments", () => {
+    const current = fleetDataService.getSnapshot();
+    const malformed = {
+      ...structuredClone(current),
+      assignments: [
+        ...current.assignments,
+        {
+          driverId: "driver-profile-carlo",
+          endDate: null,
+          id: "conflicting-active-assignment",
+          startDate: "2026-07-19",
+          status: "Active" as const,
+          vehicleId: "vehicle-nova-7710",
+        },
+      ],
+    };
+    window.localStorage.setItem(
+      FLEET_STORAGE_KEYS.current,
+      JSON.stringify({ data: malformed, version: FLEET_STORAGE_KEYS.version }),
+    );
+
+    const recovered = fleetDataService.getSnapshot();
+
+    expect(
+      recovered.assignments.some(
+        (assignment) => assignment.id === "conflicting-active-assignment",
+      ),
+    ).toBe(false);
     expect(window.localStorage.getItem(FLEET_STORAGE_KEYS.current)).toBeNull();
   });
 });

@@ -14,6 +14,8 @@ import type {
   Vehicle,
   VehicleAssignment,
 } from "../types/fleet";
+import { VEHICLE_STATUSES } from "../types/fleet";
+import { isValidIsoDate } from "../utils/validation";
 
 export const FLEET_STATE_VERSION = 4 as const;
 
@@ -44,6 +46,14 @@ function hasUniqueIds(records: readonly { id: string }[]) {
   return new Set(records.map(({ id }) => id)).size === records.length;
 }
 
+function hasUniqueNormalizedValues(values: readonly string[]) {
+  const normalized = values.map((value) => value.trim().toLowerCase());
+  return (
+    normalized.every((value) => value.length > 0) &&
+    new Set(normalized).size === normalized.length
+  );
+}
+
 function hasBaseFields(
   value: unknown,
 ): value is UnknownRecord & { id: string } {
@@ -65,7 +75,9 @@ function isDriverProfile(value: unknown): value is DriverProfile {
     hasBaseFields(value) &&
     isString(value.userId) &&
     isString(value.employeeNumber) &&
+    value.employeeNumber.trim().length > 0 &&
     isString(value.licenseNumber) &&
+    value.licenseNumber.trim().length > 0 &&
     isString(value.phone) &&
     ["Assigned", "Available", "Inactive"].includes(String(value.status))
   );
@@ -76,6 +88,7 @@ function isMechanicProfile(value: unknown): value is MechanicProfile {
     hasBaseFields(value) &&
     isString(value.userId) &&
     isString(value.employeeNumber) &&
+    value.employeeNumber.trim().length > 0 &&
     isString(value.specialization) &&
     isString(value.phone) &&
     ["Active", "Inactive"].includes(String(value.status))
@@ -86,16 +99,20 @@ function isVehicle(value: unknown): value is Vehicle {
   return (
     hasBaseFields(value) &&
     isString(value.plateNumber) &&
+    value.plateNumber.trim().length > 0 &&
     isString(value.vin) &&
+    value.vin.trim().length > 0 &&
     isString(value.make) &&
     isString(value.model) &&
     isFiniteNumber(value.year) &&
+    Number.isInteger(value.year) &&
+    value.year >= 1980 &&
+    value.year <= new Date().getFullYear() + 1 &&
     isFiniteNumber(value.currentMileage) &&
+    value.currentMileage >= 0 &&
     isString(value.fleetNumber) &&
     isString(value.type) &&
-    ["Active", "Maintenance", "Inspection", "Out of Service"].includes(
-      String(value.status),
-    )
+    VEHICLE_STATUSES.includes(value.status as Vehicle["status"])
   );
 }
 
@@ -288,14 +305,79 @@ export function isValidFleetState(value: unknown): value is FleetState {
   const scheduleIds = new Set(
     schedules.map((item) => (item as MaintenanceSchedule).id),
   );
+  const typedUsers = users as User[];
+  const typedDrivers = driverProfiles as DriverProfile[];
+  const typedMechanics = mechanicProfiles as MechanicProfile[];
+  const typedVehicles = vehicles as Vehicle[];
+  const typedAssignments = assignments as VehicleAssignment[];
+  const typedWorkOrders = workOrders as MaintenanceWorkOrder[];
+  const typedSchedules = schedules as MaintenanceSchedule[];
+  const userById = new Map(typedUsers.map((user) => [user.id, user]));
+  const activeAssignments = typedAssignments.filter(
+    (assignment) => assignment.status === "Active",
+  );
+  const activeDriverIds = activeAssignments.map(
+    (assignment) => assignment.driverId,
+  );
+  const activeVehicleIds = activeAssignments.map(
+    (assignment) => assignment.vehicleId,
+  );
+  const today = new Date().toISOString().slice(0, 10);
 
   return (
+    hasUniqueNormalizedValues(typedUsers.map((user) => user.email)) &&
+    hasUniqueNormalizedValues(
+      typedDrivers.map((profile) => profile.licenseNumber),
+    ) &&
+    hasUniqueNormalizedValues(
+      [...typedDrivers, ...typedMechanics].map(
+        (profile) => profile.employeeNumber,
+      ),
+    ) &&
+    hasUniqueNormalizedValues(
+      typedVehicles.map((vehicle) => vehicle.fleetNumber),
+    ) &&
+    hasUniqueNormalizedValues(
+      typedVehicles.map((vehicle) => vehicle.plateNumber),
+    ) &&
+    hasUniqueNormalizedValues(typedVehicles.map((vehicle) => vehicle.vin)) &&
+    new Set(activeDriverIds).size === activeDriverIds.length &&
+    new Set(activeVehicleIds).size === activeVehicleIds.length &&
     driverProfiles.every((item) =>
       userIds.has((item as DriverProfile).userId),
     ) &&
+    typedDrivers.every((profile) => {
+      const user = userById.get(profile.userId);
+      const hasActiveAssignment = activeDriverIds.includes(profile.id);
+      return (
+        user?.role === "driver" &&
+        (user.status === "Active") === (profile.status !== "Inactive") &&
+        hasActiveAssignment === (profile.status === "Assigned")
+      );
+    }) &&
     mechanicProfiles.every((item) =>
       userIds.has((item as MechanicProfile).userId),
     ) &&
+    typedMechanics.every((profile) => {
+      const user = userById.get(profile.userId);
+      const hasCurrentWork =
+        typedWorkOrders.some(
+          (record) =>
+            record.assignedMechanicId === profile.id &&
+            record.status !== "completed" &&
+            record.status !== "cancelled",
+        ) ||
+        typedSchedules.some(
+          (schedule) =>
+            schedule.assignedMechanicId === profile.id &&
+            schedule.status === "Planned",
+        );
+      return (
+        user?.role === "mechanic" &&
+        (user.status === "Active") === (profile.status === "Active") &&
+        (profile.status === "Active" || !hasCurrentWork)
+      );
+    }) &&
     managerProfiles.every((item) =>
       userIds.has((item as { userId: string }).userId),
     ) &&
@@ -303,7 +385,15 @@ export function isValidFleetState(value: unknown): value is FleetState {
       const assignment = item as VehicleAssignment;
       return (
         driverIds.has(assignment.driverId) &&
-        vehicleIds.has(assignment.vehicleId)
+        vehicleIds.has(assignment.vehicleId) &&
+        isValidIsoDate(assignment.startDate) &&
+        assignment.startDate <= today &&
+        (assignment.status === "Active"
+          ? assignment.endDate === null
+          : assignment.endDate !== null &&
+            isValidIsoDate(assignment.endDate) &&
+            assignment.endDate >= assignment.startDate &&
+            assignment.endDate <= today)
       );
     }) &&
     mileageLogs.every((item) => {

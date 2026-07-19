@@ -137,6 +137,11 @@ export default function UsersPage() {
       depot: data.managerProfiles.find((profile) => profile.userId === user.id)
         ?.depot,
       email: user.email,
+      employeeNumber:
+        data.driverProfiles.find((profile) => profile.userId === user.id)
+          ?.employeeNumber ??
+        data.mechanicProfiles.find((profile) => profile.userId === user.id)
+          ?.employeeNumber,
       fullName: user.fullName,
       id: user.id,
       licenseNumber: data.driverProfiles.find(

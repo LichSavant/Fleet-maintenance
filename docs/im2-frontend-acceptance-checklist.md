@@ -92,25 +92,51 @@ This checklist is intentionally left unchecked for formal acceptance testing. Th
   - Manual test: Move a planned date before and after today without changing mileage and confirm the mileage status is unchanged; then change mileage and confirm status changes.
   - Status: Completed — v3 `Upcoming`/`Overdue` schedule data migrates to the non-urgent `Planned` status in v4.
 
+## Completed relationship-integrity repair
+
+- [x] Unique and validated vehicle identity
+  - Expected behavior: Fleet number, plate number, and VIN are case-insensitively unique; year is a valid whole year; mileage is finite and non-negative; status is one of the controlled vehicle statuses at both compile time and runtime.
+  - Relevant files: `frontend/src/types/fleet.ts`, `frontend/src/types/management.ts`, `frontend/src/components/common/VehicleFormModal.tsx`, `frontend/src/services/fleetDataService.ts`, `frontend/src/services/fleetStateMigration.ts`
+  - Manual test: Create or edit vehicles using duplicate plates/VINs, invalid years, negative/non-numeric mileage, and a tampered status; confirm clear inline/service errors and no partial record.
+  - Status: Completed — write-time validation and persisted-state validation enforce the same identity, numeric, and status rules.
+
+- [x] Linked driver and mechanic profile integrity
+  - Expected behavior: Every driver/mechanic profile links to a user of the matching role; employee numbers are required and globally unique across both profile types; driver licenses are unique; inactive profiles cannot receive assignments or work.
+  - Relevant files: `frontend/src/components/common/AccountFormModal.tsx`, `frontend/src/pages/shared/DriversPage.tsx`, `frontend/src/pages/shared/MechanicsPage.tsx`, `frontend/src/services/fleetDataService.ts`, `frontend/src/services/fleetStateMigration.ts`
+  - Manual test: Create/edit both profile types with blank or duplicate employee numbers, duplicate licenses, inactive accounts, and mismatched stored relationships; confirm rejection and fail-closed recovery.
+  - Status: Completed — forms expose employee numbers with inline required validation, the service rejects cross-profile duplicates, and restored state verifies profile ownership and status consistency.
+
+- [x] Conflict-free active assignments
+  - Expected behavior: A driver and vehicle each have at most one active assignment; only an active available driver and active assignable vehicle may be selected; maintenance/inspection/out-of-service vehicles are rejected; dates are real and ordered; ending retains history and updates current views.
+  - Relevant files: `frontend/src/pages/shared/AssignmentsPage.tsx`, `frontend/src/components/common/AssignmentFormModal.tsx`, `frontend/src/services/fleetDataService.ts`, `frontend/src/services/fleetStateMigration.ts`, `frontend/src/services/operationsViewService.ts`, `frontend/src/services/dashboardService.ts`
+  - Manual test: Attempt conflicts on each side, inactive drivers, a maintenance vehicle, impossible/future/start-before-end dates, and duplicate active assignments injected into storage; then end a valid assignment and inspect both historical and signed-in driver views.
+  - Status: Completed — service mutations, eligible lists, dashboard resolution, and stored-state recovery now share the same active-relationship rules.
+
+- [x] Non-destructive deactivation and historical retention
+  - Expected behavior: Active assignments and planned/open work block deactivation; after relationships are ended, users, profiles, vehicles, assignments, mileage, work, and maintenance history remain addressable by their original IDs while statuses become inactive or out of service.
+  - Relevant files: `frontend/src/pages/shared/DriversPage.tsx`, `frontend/src/pages/shared/MechanicsPage.tsx`, `frontend/src/pages/shared/VehiclesPage.tsx`, `frontend/src/services/fleetDataService.ts`, `frontend/src/services/fleetDataService.test.ts`
+  - Manual test: Try deactivation with active links, end or close those links, confirm the dialogs, deactivate, and verify every historical assignment and maintenance foreign key still resolves after refresh.
+  - Status: Completed — no destructive delete operation exists for these entities, active links are protected, and automated tests verify archived records retain historical references.
+
 ## Required capabilities
 
 - [ ] Vehicle inventory management
   - Expected behavior: An authorized administrator or manager can list, search, filter, sort, view, create, edit, and deactivate vehicles; identifiers remain unique; odometer history cannot be lowered or bypassed; all mutations enforce permission and create audit events.
   - Relevant files: `frontend/src/pages/shared/VehiclesPage.tsx`, `frontend/src/components/common/VehicleFormModal.tsx`, `frontend/src/services/fleetDataService.ts`, `frontend/src/services/managementViewService.ts`, `frontend/src/types/fleet.ts`, `frontend/src/types/management.ts`
   - Manual test: Sign in as administrator and manager, exercise every vehicle action including duplicate plate/fleet number and linked-record deactivation; then verify a driver/mechanic is denied and verify odometer/audit history remains consistent.
-  - Status: Partial — UI CRUD exists and odometer edits can no longer bypass mileage history, but management service authorization and complete vehicle audit coverage remain missing.
+  - Status: Partial overall — vehicle identity, controlled status, numeric validation, active-link deactivation protection, and historical archival are implemented; management service authorization and complete vehicle audit coverage remain separate open items.
 
 - [ ] Driver directory
   - Expected behavior: Authorized roles can search, filter, sort, view, create, edit, and deactivate linked driver accounts/profiles without producing a profile-less user or a user-less profile; a created account follows the documented sign-in/provisioning policy.
   - Relevant files: `frontend/src/pages/shared/DriversPage.tsx`, `frontend/src/components/common/AccountFormModal.tsx`, `frontend/src/services/fleetDataService.ts`, `frontend/src/services/managementViewService.ts`, `frontend/src/types/fleet.ts`
   - Manual test: Create a driver, confirm both records share the correct user ID, test duplicates and deactivation with/without an active assignment, then verify the new account's documented authentication behavior.
-  - Status: Partial — directory and linked profile behavior work, but service authorization and authentication-account provisioning are inconsistent.
+  - Status: Partial overall — user/profile linkage, unique employee/license validation, inactive-driver assignment rejection, non-destructive deactivation, and historical retention are implemented; service authorization and authentication-account provisioning remain separate open items.
 
-- [ ] Driver-to-vehicle assignment
+- [x] Driver-to-vehicle assignment
   - Expected behavior: An administrator or manager can assign one eligible driver to one available vehicle, cannot create overlapping active assignments on either side, can end an assignment with a valid date, and can still view historical assignments.
   - Relevant files: `frontend/src/pages/shared/AssignmentsPage.tsx`, `frontend/src/components/common/AssignmentFormModal.tsx`, `frontend/src/services/fleetDataService.ts`, `frontend/src/services/operationsViewService.ts`, `frontend/src/types/operations.ts`
   - Manual test: Create a valid assignment; repeat with the same driver and with the same vehicle; try inactive/unavailable records and invalid dates; end the valid assignment and confirm history and driver availability.
-  - Status: Implemented for the frontend demonstration.
+  - Status: Implemented — conflicts on either side, inactive drivers, non-active vehicles, strict date ordering, historical retention, driver availability, stored-state conflicts, and immediate dashboard resolution are covered.
 
 - [ ] Manual odometer logging
   - Expected behavior: The signed-in driver submits a manual reading for the currently assigned vehicle; the entry records driver, vehicle, date, notes, and reading; lower/out-of-order readings fail; no alternate edit path can invalidate the log.
@@ -182,13 +208,13 @@ This checklist is intentionally left unchecked for formal acceptance testing. Th
   - Expected behavior: Required, format, range, uniqueness, date, transition, mileage, interval, and relationship rules are enforced both in forms and in services with clear errors; impossible dates and non-finite values fail.
   - Relevant files: `frontend/src/utils/validation.ts`, `frontend/src/services/fleetDataService.ts`, `frontend/src/services/authService.ts`, `frontend/src/components/common`, `frontend/src/pages/auth`, `frontend/src/pages/driver/DriverMileagePage.tsx`
   - Manual test: Submit empty, whitespace-only, malformed, duplicate, boundary, impossible-date, `NaN`/infinite, negative, stale, and unauthorized values through UI and direct service calls; verify no partial write occurs.
-  - Status: Partial — mileage submission now enforces required, finite, non-negative, whole-number, strictly increasing, assignment, and vehicle-availability rules in both UI and service; impossible dates and broader text limits remain open.
+  - Status: Partial overall — mileage, vehicle identity/year/status, employee/license uniqueness, strict ISO calendar dates, assignment ordering/conflicts, and relationship eligibility are enforced in forms/services; broader text limits and unrelated workflows remain open.
 
 - [ ] Relationship and referential-integrity protection
   - Expected behavior: All foreign IDs resolve; user/profile creation is atomic; active and historical dependencies prevent destructive deletion; storage restoration rejects or safely repairs malformed/orphaned records; auth and fleet identities cannot drift.
   - Relevant files: `frontend/src/services/fleetDataService.ts`, `frontend/src/services/authService.ts`, `frontend/src/context/AuthContext.tsx`, `frontend/src/types/fleet.ts`, `frontend/src/services/managementViewService.ts`, `frontend/src/services/operationsViewService.ts`
   - Manual test: Attempt each deactivation with active/historical links, tamper stored foreign keys and record shapes, simulate storage-write failure, update identity fields, refresh/sign out/sign in, and confirm records remain linked or fail closed.
-  - Status: Partial — persisted fleet relationships fail closed and vehicle mileage is now mutated only with a linked mileage log after creation; auth/fleet identity synchronization remains open.
+  - Status: Partial overall — fleet foreign keys, role-profile ownership, unique identifiers, single active assignments, status consistency, deactivation protections, and historical retention now fail closed; synchronization between the separate authentication and fleet-account stores remains open.
 
 - [ ] Notifications generated by meaningful fleet events
   - Expected behavior: Documented assignment, mileage, maintenance-due, work assignment, completion, cancellation, and status events create one relevant notification for the correct current account; unread count is derived and destinations are authorized real routes.
@@ -258,4 +284,4 @@ This checklist is intentionally left unchecked for formal acceptance testing. Th
   - Expected behavior: `npm run lint`, `npm run typecheck`, `npm run test`, and `npm run build` all exit successfully, with new mileage-boundary, authorization, audit, and integrity tests included.
   - Relevant files: `frontend/package.json`, all `frontend/src/**/*.test.ts` and `frontend/src/**/*.test.tsx`
   - Manual test: Run all four commands from `frontend/` and compare the test inventory with every requirement above.
-  - Status: Current maintenance-workflow baseline passes: format passed; lint passed; typecheck passed; 10 test files/81 tests passed; build passed with 122 modules transformed. Coverage now includes valid and invalid transitions, assigned-mechanic access, mileage/cost completion validation, history creation, duplicate-completion prevention, in-progress cancellation confirmation, next-service recalculation, vehicle-mileage updates, audit creation, multi-role completion notifications, service-type preservation, and immutable-identity history correction.
+  - Status: Current relationship-integrity baseline passes: format passed; lint passed; typecheck passed; 10 test files/91 tests passed; build passed with 123 modules transformed. Coverage includes duplicate plate/VIN/employee/license rejection, vehicle value validation, driver/vehicle assignment conflicts, inactive driver/mechanic rejection, under-maintenance vehicle rejection, strict dates, assignment ending, immediate driver-dashboard resolution, stored conflict recovery, active-link protection, planned-work protection, and non-destructive historical archival.

@@ -12,9 +12,11 @@ import type {
 
 export type ManagementErrorCode =
   | "duplicate_email"
+  | "duplicate_employee_number"
   | "duplicate_fleet_number"
   | "duplicate_license"
   | "duplicate_plate"
+  | "duplicate_vin"
   | "invalid_record"
   | "linked_record"
   | "not_found"

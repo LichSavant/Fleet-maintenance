@@ -24,6 +24,7 @@ export interface AccountFormModalProps {
 interface AccountFormErrors {
   depot?: string;
   email?: string;
+  employeeNumber?: string;
   fullName?: string;
   licenseNumber?: string;
   specialization?: string;
@@ -32,6 +33,7 @@ interface AccountFormErrors {
 const EMPTY_VALUES: UserAccountInput = {
   depot: "",
   email: "",
+  employeeNumber: "",
   fullName: "",
   licenseNumber: "",
   role: "driver",
@@ -66,6 +68,12 @@ export function AccountFormModal({
       nextErrors.fullName = "Enter a full name.";
     if (!isValidEmail(values.email))
       nextErrors.email = "Enter a valid email address.";
+    if (
+      (values.role === "driver" || values.role === "mechanic") &&
+      !isRequired(values.employeeNumber ?? "")
+    ) {
+      nextErrors.employeeNumber = "Enter an employee number.";
+    }
     if (values.role === "driver" && !isRequired(values.licenseNumber ?? "")) {
       nextErrors.licenseNumber = "Enter a license number.";
     }
@@ -176,6 +184,19 @@ export function AccountFormModal({
             <option value="driver">Driver</option>
           </Select>
         </FormField>
+        {(values.role === "driver" || values.role === "mechanic") && (
+          <FormField
+            error={errors.employeeNumber}
+            id="account-employee-number"
+            label="Employee number"
+            required
+          >
+            <Input
+              onChange={(event) => update("employeeNumber", event.target.value)}
+              value={values.employeeNumber}
+            />
+          </FormField>
+        )}
         {values.role === "driver" && (
           <FormField
             error={errors.licenseNumber}

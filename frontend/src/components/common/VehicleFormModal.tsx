@@ -70,11 +70,15 @@ export function VehicleFormModal({
       if (!isRequired(values[field]))
         nextErrors[field] = "This field is required.";
     }
-    if (values.year < 1980 || values.year > new Date().getFullYear() + 1) {
+    if (
+      !Number.isInteger(values.year) ||
+      values.year < 1980 ||
+      values.year > new Date().getFullYear() + 1
+    ) {
       nextErrors.year = "Enter a year between 1980 and next year.";
     }
     if (!Number.isFinite(values.currentMileage) || values.currentMileage < 0) {
-      nextErrors.currentMileage = "Mileage cannot be negative.";
+      nextErrors.currentMileage = "Enter a numeric, non-negative mileage.";
     }
     setErrors(nextErrors);
     setFormError("");
